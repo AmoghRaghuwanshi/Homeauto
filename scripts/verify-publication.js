@@ -73,7 +73,7 @@ function main() {
     .filter(Boolean);
   if (!paths.length) throw new Error("No tracked/staged publication candidate");
   const issues = inspect(paths);
-  for (const file of ['README.md','vercel.json','api/index.js','package-lock.json','server/package-lock.json','server/online/migrations/001_online.sql','server/online/migrations/002_bounded_maintenance.sql','.github/workflows/verify.yml']) if(!paths.includes(file)) issues.push({file,reason:'required publication file is not tracked'});
+  for (const file of ['README.md','vercel.json','api/index.js','package-lock.json','server/package-lock.json','server/online/migrations/001_online.sql','server/online/migrations/002_bounded_maintenance.sql','server/online/migrations/003_self_service_signup.sql','.github/workflows/verify.yml']) if(!paths.includes(file)) issues.push({file,reason:'required publication file is not tracked'});
   console.log(JSON.stringify({ tracked_files: paths.length, issues }, null, 2));
   if (issues.length) process.exitCode = 1;
   return { paths, issues };

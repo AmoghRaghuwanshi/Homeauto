@@ -68,6 +68,35 @@ function createCloudAuth(pool, { secure = true } = {}) {
     actor,
     dto,
     rate,
+    async register(username, displayName, password, ip) {
+      if (typeof username !== 'string' || !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username.trim().toLowerCase()))
+        fail('INVALID_USERNAME', 400);
+      username = username.trim().toLowerCase();
+      displayName = text(displayName, 80);
+      if (typeof password !== 'string' || password.length < 12 || password.length > 256)
+        fail('PASSWORD_LENGTH', 400);
+      try {
+        await rate('signup-ip:' + ip, 5, 3600);
+        await rate('signup-global', 50, 3600);
+      } catch (error) {
+        if (error.code === 'RATE_LIMITED') fail('SIGNUP_RATE_LIMITED', 429);
+        throw error;
+      }
+      if (busy >= 2) fail('AUTH_BUSY', 429);
+      busy++;
+      try {
+        const encoded = await passwordHash(password);
+        let created;
+        try {
+          created = await fn(pool, 'register_user', [crypto.randomUUID(), crypto.randomUUID(), username, displayName, encoded]);
+        } catch (error) {
+          if (error.code === '42883') fail('SIGNUP_UNAVAILABLE', 503);
+          throw error;
+        }
+        if (!created) fail('USERNAME_TAKEN', 409);
+        return { created: true, username };
+      } finally { busy--; }
+    },
     async login(username, password, ip) {
       username = text(username).toLowerCase();
       await rate("login-ip:" + ip, 20, 900);

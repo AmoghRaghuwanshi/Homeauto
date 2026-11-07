@@ -1,5 +1,7 @@
 # Database migration and preservation
 
+Signup adds003_self_service_signup.sql after the unchanged001/002 files. It adds only the registration function; existing identities and household/device data remain. Reapply the reviewed runtime grants after this migration. Deploy the schema2/3-compatible application first, then apply003 and grants atomically. Registration is unavailable until that step; existing sign-in remains compatible during rollout. The ledger checksum, role/RLS checks and snapshot/target verification still apply.
+
 Publication verification adds forward migration002_bounded_maintenance.sql;
 001 is unchanged. The runner verifies both checksums/versions, installs missing
 migrations atomically and refuses unknown or altered history. Reapply reviewed

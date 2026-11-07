@@ -1,5 +1,14 @@
 import { preferences } from './preferences.js';
 const hi = {
+  'Create account': 'खाता बनाएँ', 'Create your account': 'अपना खाता बनाएँ', 'Your details': 'आपकी जानकारी', 'Your name': 'आपका नाम',
+  'New accounts get a separate home. Devices connect through your home gateway.': 'नए खाते के लिए अलग घर बनता है। उपकरण आपके होम गेटवे से जुड़ते हैं।',
+  'Create an account for your own home. Existing homes stay private.': 'अपने घर के लिए खाता बनाएँ। दूसरे घरों की जानकारी निजी रहती है।',
+  'Use 3–32 letters, numbers, dots, dashes or underscores.': '3–32 अंग्रेज़ी अक्षर, अंक, डॉट, डैश या अंडरस्कोर इस्तेमाल करें।',
+  'Start with a letter or number.': 'शुरुआत अंग्रेज़ी अक्षर या अंक से करें।',
+  'Use at least 12 characters.': 'कम से कम 12 अक्षर इस्तेमाल करें।', 'Confirm password': 'पासवर्ड की पुष्टि करें',
+  'Show passwords': 'पासवर्ड दिखाएँ', 'Hide passwords': 'पासवर्ड छिपाएँ', 'Passwords do not match.': 'दोनों पासवर्ड एक जैसे नहीं हैं।',
+  'Already have an account?': 'पहले से खाता है?', 'New to HomeAuto?': 'HomeAuto पर नए हैं?',
+  'Use your username and password.': 'अपना उपयोगकर्ता नाम और पासवर्ड दर्ज करें।', 'Account created. Sign in to continue.': 'खाता बन गया है। आगे बढ़ने के लिए साइन इन करें।',
   'Preferences': 'पसंद', 'General': 'सामान्य',
   'Loading…': 'लोड हो रहा है…',
   'Check the date range.': 'तारीख़ की सीमा जाँचें।',
@@ -65,6 +74,12 @@ Object.assign(hi, {
 });
 export const t = value => preferences.language === 'hi' ? hi[value] || value : value;
 const errors = {
+  INVALID_USERNAME: ['Use 3–32 letters, numbers, dots, dashes or underscores. Start with a letter or number.', '3–32 अंग्रेज़ी अक्षर, अंक, डॉट, डैश या अंडरस्कोर रखें। शुरुआत अक्षर या अंक से करें।'],
+  USERNAME_TAKEN: ['That username is taken. Choose another one.', 'यह उपयोगकर्ता नाम पहले से इस्तेमाल हो रहा है। दूसरा चुनें।'],
+  PASSWORD_LENGTH: ['Use a password with 12–256 characters.', 'पासवर्ड में 12–256 अक्षर रखें।'],
+  SIGNUP_RATE_LIMITED: ['Too many signup attempts. Try again in an hour.', 'खाता बनाने के कई प्रयास हुए हैं। एक घंटे बाद फिर कोशिश करें।'],
+  SIGNUP_UNAVAILABLE: ['Signup is temporarily unavailable. Try again shortly.', 'अभी खाता नहीं बन पा रहा है। थोड़ी देर बाद फिर कोशिश करें।'],
+  AUTH_BUSY: ['The account service is busy. Try again shortly.', 'खाता सेवा अभी व्यस्त है। थोड़ी देर बाद फिर कोशिश करें।'],
   CLOUD_UNAVAILABLE: ['HomeAuto could not connect. Device reports may be old. Try again.', 'HomeAuto से संपर्क नहीं हुआ। उपकरणों की जानकारी पुरानी हो सकती है। फिर कोशिश करें।'],
   CLOUD_CONFIGURATION_REQUIRED: ['Cloud access is not configured yet. Contact the home owner.', 'क्लाउड एक्सेस अभी तैयार नहीं है। घर के मालिक से संपर्क करें।'],
   REMOTE_CONTROL_NOT_ENABLED: ['Remote light control is not enabled for this home.', 'इस घर में दूर से लाइट नियंत्रण चालू नहीं है।'],

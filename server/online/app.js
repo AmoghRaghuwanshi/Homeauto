@@ -101,6 +101,16 @@ function createOnlineApp({ pool, config, logger = console }) {
     if (!req.is("application/json")) fail("JSON_REQUIRED", 415);
   };
   app.post(
+    "/api/auth/signup",
+    route(async (req, res) => {
+      mutation(req);
+      fields(req.body, ["username", "display_name", "password"], ["username", "display_name", "password"]);
+      const ip = process.env.VERCEL === "1" ? req.headers["x-real-ip"] || "platform" : req.socket.remoteAddress;
+      const result = await auth.register(req.body.username, req.body.display_name, req.body.password, String(ip).slice(0, 100));
+      res.status(201).json(result);
+    }),
+  );
+  app.post(
     "/api/auth/login",
     route(async (req, res) => {
       mutation(req);
@@ -590,7 +600,7 @@ function createOnlineApp({ pool, config, logger = console }) {
         broker: { connected: s.mqtt.connected, enabled: false },
         gateway: s.gateway,
         boards: s.espBoards,
-        database: { healthy: true, schema_version: 2, engine: "PostgreSQL" },
+        database: { healthy: true, schema_version: (await pool.query('SELECT max(version)::int version FROM public.homeauto_online_migrations')).rows[0].version, engine: "PostgreSQL" },
         speech: s.speech,
         door_enabled: false,
         simulation: !!config.simulation,
@@ -631,7 +641,7 @@ function createOnlineApp({ pool, config, logger = console }) {
             ? "VERSION_CONFLICT"
             : "CLOUD_UNAVAILABLE";
     res.locals.failureCode = code;
-    if (status === 429) res.set("Retry-After", "60");
+    if (status === 429) res.set("Retry-After", code === 'SIGNUP_RATE_LIMITED' ? '3600' : code === 'AUTH_BUSY' ? '5' : '60');
     res.status(status).json({
       error: {
         code,

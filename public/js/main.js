@@ -10,6 +10,7 @@ import { Navigation, routeInfo, captureFocus, restoreFocus } from './navigation.
 const app = document.getElementById('app'); const toasts = document.getElementById('toasts');
 let renderId = 0, lastPath = '', main, shellBuilt = false, assistantBuilt = false, knownAlerts = new Set(), initialAlerts = false, navigation;
 let pendingNavigation = { direction: 'none', restore: true, initial: true };
+let authNotice = false, authUsername = '', authInitialized = false;
 const ctx = {
   pending: new Set(), feedback: new Map(), readingAlerts: new Set(), filters: {}, conversation: { transcript: '', response: '', draft: '', resultId: null, securityLink: false }, wakeRequired: false,
   notify(message, error = false) { const node = el('div', { class: 'toast' + (error ? ' toast-error' : '') }, message); toasts.append(node); while (toasts.children.length > 3) toasts.firstChild.remove(); let timer; const resume = () => { clearTimeout(timer); timer = setTimeout(() => node.remove(), error ? 12000 : 6500); }; resume(); node.addEventListener('mouseenter', () => clearTimeout(timer)); node.addEventListener('mouseleave', resume); },
@@ -136,7 +137,9 @@ function globalBanner() {
   return null;
 }
 async function render(focus = false) {
-  if (!state.session) return renderLogin(); if (!state.snapshot) return;
+  if (!state.session) return renderLogin();
+  if (['/signup', '/login'].includes(location.pathname)) { navigation.go('/', { replace: true, direction: 'none' }); return; }
+  if (!state.snapshot) return;
   const id = ++renderId; const active = document.activeElement; const samePath = lastPath.split('?')[0] === location.pathname;
   const drafts = samePath && lastPath === navigation.path() && main ? [...main.querySelectorAll('input,textarea,select')].filter(n => n.name && n.type !== 'radio' && n.type !== 'checkbox' && n.type !== 'range').map(n => [n.name, n.value]) : [];
   const focused = samePath ? active?.closest('dialog')?.returnFocus || captureFocus(active) : null; const selection = active?.selectionStart;
@@ -175,22 +178,62 @@ function onUpdate() {
   if (location.pathname === '/security/activity' && lastPath === navigation.path() && main?.children.length) return;
   render();
 }
-function renderLogin() {
-  shellBuilt = false; main = null; renderId++; lastPath = '';
-  const username = field('Username', { name: 'username', autocomplete: 'username' }); const password = field('Password', { name: 'password', type: 'password', autocomplete: 'current-password', maxLength: 256 });
+function authLanguages() {
+  return el('div', { class: 'login-lang', role: 'group', 'aria-label': t('Language') }, el('button', { type: 'button', class: 'button button-ghost', onclick: () => applyPreferences({ language: 'en' }), 'aria-pressed': String(preferences.language === 'en') }, 'English'), el('button', { type: 'button', class: 'button button-ghost', onclick: () => applyPreferences({ language: 'hi' }), 'aria-pressed': String(preferences.language === 'hi') }, 'हिन्दी'));
+}
+function authLayout(form, signup = false) {
+  const cloud = Api.mode === 'cloud';
+  document.title = t(signup ? 'Create account' : 'Sign in') + ' · HomeAuto';
+  app.replaceChildren(el('main', { class: 'login-layout' }, el('section', { class: 'login-story' }, brand(), el('p', { class: 'eyebrow' }, t(cloud ? 'HomeAuto online' : 'Local and private')), el('h1', { tabindex: '-1' }, t(signup ? 'Create your account' : cloud ? 'Sign in to HomeAuto' : 'Your home stays yours.')), el('p', {}, t(signup ? 'New accounts get a separate home. Devices connect through your home gateway.' : cloud ? 'Use your cloud account for online access. Local controls stay on the home hub.' : 'Internet is not needed for everyday controls.')), el('img', { src: '/assets/home-scene.svg', alt: '', width: 260, height: 220 })), el('section', { class: 'login-form-wrap', 'aria-label': t(signup ? 'Create account' : 'Sign in') }, form)));
+  const heading = app.querySelector('h1'); requestAnimationFrame(() => { if (heading.isConnected) heading.focus({ preventScroll: true }); });
+}
+function renderSignup(draft = {}) {
+  shellBuilt = false; main = null; const generation = ++renderId; lastPath = '';
+  const display = field('Your name', { name: 'signup-name', value: draft['signup-name'] || '', autocomplete: 'name', maxLength: 80 });
+  const username = field('Username', { name: 'signup-username', value: draft['signup-username'] || '', autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', minlength: 3, maxLength: 32, pattern: '[A-Za-z0-9][A-Za-z0-9._\\-]{2,31}', title: t('Start with a letter or number.'), 'aria-describedby': 'signup-username-help' });
+  username.node.append(el('span', { id: 'signup-username-help', class: 'small muted' }, t('Use 3–32 letters, numbers, dots, dashes or underscores.'), ' ', t('Start with a letter or number.')));
+  username.node.firstElementChild.id = 'signup-username-label'; username.input.setAttribute('aria-labelledby', 'signup-username-label');
+  const password = field('Password', { name: 'signup-password', value: draft['signup-password'] || '', type: 'password', autocomplete: 'new-password', minlength: 12, maxLength: 256, 'aria-describedby': 'signup-password-help' });
+  password.node.append(el('span', { id: 'signup-password-help', class: 'small muted' }, t('Use at least 12 characters.')));
+  password.node.firstElementChild.id = 'signup-password-label'; password.input.setAttribute('aria-labelledby', 'signup-password-label');
+  const confirmation = field('Confirm password', { name: 'signup-confirm', value: draft['signup-confirm'] || '', type: 'password', autocomplete: 'new-password', minlength: 12, maxLength: 256 });
+  confirmation.input.addEventListener('input', () => confirmation.input.removeAttribute('aria-invalid'));
+  const error = el('p', { class: 'form-error', role: 'alert', hidden: true, tabindex: '-1' });
+  const submit = el('button', { type: 'submit', class: 'button button-primary button-full' }, t('Create account'));
+  const form = el('form', { class: 'login-form' }, authLanguages(), el('h2', {}, t('Your details')), display.node, username.node, password.node, confirmation.node,
+    button('Show passwords', event => { const show = password.input.type === 'password'; password.input.type = confirmation.input.type = show ? 'text' : 'password'; event.currentTarget.querySelector('span').textContent = t(show ? 'Hide passwords' : 'Show passwords'); event.currentTarget.setAttribute('aria-pressed', String(show)); }, { kind: 'ghost', 'aria-pressed': 'false' }), error, submit,
+    el('div', { class: 'auth-footer' }, el('p', { class: 'small muted' }, t('Already have an account?')), link('Sign in', '/login', 'button button-secondary button-full')));
+  form.addEventListener('submit', async event => {
+    event.preventDefault(); if (submit.disabled) return; error.hidden = true;
+    if (password.input.value !== confirmation.input.value) { confirmation.input.setAttribute('aria-invalid', 'true'); error.textContent = t('Passwords do not match.'); error.hidden = false; confirmation.input.focus(); return; }
+    submit.disabled = true; submit.setAttribute('aria-busy', 'true');
+    try {
+      const result = await Api.request('/api/auth/signup', { method: 'POST', body: { display_name: display.input.value, username: username.input.value, password: password.input.value } });
+      if (generation !== renderId) return;
+      authUsername = result.username; authNotice = true; navigation.go('/login', { replace: true, direction: 'back' });
+    } catch (e) { if (generation === renderId) { error.textContent = errorText(e); error.hidden = false; error.focus(); } }
+    finally { submit.disabled = false; submit.removeAttribute('aria-busy'); }
+  });
+  authLayout(form, true);
+}
+function renderLogin(draft = {}) {
+  if (Api.mode === 'cloud' && location.pathname === '/signup') return renderSignup(draft);
+  shellBuilt = false; main = null; const generation = ++renderId; lastPath = '';
+  const username = field('Username', { name: 'username', value: draft.username || authUsername, autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }); const password = field('Password', { name: 'password', value: draft.password || '', type: 'password', autocomplete: 'current-password', maxLength: 256 });
   const error = el('p', { class: 'form-error', role: 'alert', hidden: true });
   const submit = el('button', { type: 'submit', class: 'button button-primary button-full' }, t('Sign in'));
-  const form = el('form', { class: 'login-form' }, el('div', { class: 'login-lang' }, button('English', () => applyPreferences({ language: 'en' }), { kind: 'ghost' }), button('हिन्दी', () => applyPreferences({ language: 'hi' }), { kind: 'ghost' })), el('div', {}, el('h2', {}, t('Sign in to your home')), el('p', { class: 'muted' }, t(Api.mode === 'cloud' ? 'Use the account provided by your home owner.' : 'Private controls, right here.'))), username.node, password.node,
-    button('Show password', event => { password.input.type = password.input.type === 'password' ? 'text' : 'password'; event.currentTarget.querySelector('span').textContent = t(password.input.type === 'password' ? 'Show password' : 'Hide password'); }, { kind: 'ghost' }), error, submit, el('p', { class: 'small muted' }, t(Api.mode === 'cloud' ? 'An owner must create your cloud account before you sign in.' : 'Set up an owner on the home hub first.')));
-  form.addEventListener('submit', async event => { event.preventDefault(); submit.disabled = true; error.hidden = true; try { state.session = await Api.request('/api/auth/login', { method: 'POST', body: { username: username.input.value, password: password.input.value } }); await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(true); } catch (e) { error.textContent = errorText(e); error.hidden = false; } finally { submit.disabled = false; } });
-  app.replaceChildren(el('main', { class: 'login-layout' }, el('section', { class: 'login-story' }, brand(), el('p', { class: 'eyebrow' }, t(Api.mode === 'cloud' ? 'HomeAuto online' : 'Local and private')), el('h1', {}, t(Api.mode === 'cloud' ? 'Sign in to HomeAuto' : 'Your home stays yours.')), el('p', {}, t(Api.mode === 'cloud' ? 'Use your cloud account for online access. Local controls stay on the home hub.' : 'Internet is not needed for everyday controls.')), el('img', { src: '/assets/home-scene.svg', alt: '', width: 260, height: 220 })), el('section', { class: 'login-form-wrap', 'aria-label': t('Sign in') }, form)));
+  const form = el('form', { class: 'login-form' }, authLanguages(), el('div', {}, el('h2', {}, t('Sign in to your home')), el('p', { class: 'muted' }, t(Api.mode === 'cloud' ? 'Use your username and password.' : 'Private controls, right here.'))), authNotice && el('p', { class: 'status status-success', role: 'status' }, t('Account created. Sign in to continue.')), username.node, password.node,
+    button('Show password', event => { password.input.type = password.input.type === 'password' ? 'text' : 'password'; event.currentTarget.querySelector('span').textContent = t(password.input.type === 'password' ? 'Show password' : 'Hide password'); }, { kind: 'ghost' }), error, submit,
+    Api.mode === 'cloud' ? el('div', { class: 'auth-footer' }, el('p', { class: 'small muted' }, t('New to HomeAuto?')), link('Create account', '/signup', 'button button-secondary button-full')) : el('p', { class: 'small muted' }, t('Set up an owner on the home hub first.')));
+  form.addEventListener('submit', async event => { event.preventDefault(); if (submit.disabled) return; submit.disabled = true; error.hidden = true; try { const session = await Api.request('/api/auth/login', { method: 'POST', body: { username: username.input.value, password: password.input.value } }); if (generation !== renderId) { await bootstrap(); return; } authNotice = false; authUsername = ''; state.session = session; await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(true); } catch (e) { if (generation === renderId) { error.textContent = errorText(e); error.hidden = false; } } finally { submit.disabled = false; } });
+  authLayout(form);
 }
 function resetSession() { Api.sessionVersion++; ctx.pending.clear(); ctx.feedback.clear(); ctx.preferenceBusy = false; ctx.activityPage = null; ctx.assistantGeneration = (ctx.assistantGeneration || 0) + 1; ctx.voice.cancel(); ctx.stopAudio(); disconnectState(); Api.csrf = null; ctx.conversation = { transcript: '', response: '', draft: '' }; knownAlerts = new Set(); initialAlerts = false; document.querySelectorAll('dialog').forEach(d => d.close()); renderLogin(); }
 document.addEventListener('click', event => { const anchor = event.target.closest('a'); if (!anchor || event.ctrlKey || event.metaKey || event.shiftKey || anchor.target || anchor.hasAttribute('download')) return; const url = new URL(anchor.href); if (url.origin === location.origin && !url.hash && !url.pathname.startsWith('/assets/')) { event.preventDefault(); ctx.navigate(url.pathname + url.search); } });
 window.addEventListener('session-expired', () => { if (state.session) resetSession(); });
 document.addEventListener('action-error', event => ctx.notify(errorText(event.detail), true));
 let storageNotice = false;
-window.addEventListener('preferences-change', () => { ctx.wakeRequired = preferences.wakeRequired; if (!state.session) return; if (!preferences.persistent && !storageNotice) { storageNotice = true; ctx.notify(t('Saved for this visit only')); } shellBuilt = false; assistantBuilt = false; render(); });
+window.addEventListener('preferences-change', () => { ctx.wakeRequired = preferences.wakeRequired; if (!state.session) { if (!authInitialized) return; const draft = Object.fromEntries([...app.querySelectorAll('form input[name]')].map(input => [input.name, input.value])); renderLogin(draft); return; } if (!preferences.persistent && !storageNotice) { storageNotice = true; ctx.notify(t('Saved for this visit only')); } shellBuilt = false; assistantBuilt = false; render(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { ctx.voice.cancel(); ctx.stopAudio(); } });
 window.addEventListener('beforeunload', () => ctx.voice.cancel());
 let lastActivity = 0;
@@ -200,7 +243,7 @@ for (const eventName of ['pointerdown', 'keydown']) document.addEventListener(ev
 }, { passive: true });
 applyPreferences({}, false);
 async function bootstrap() {
-  try { await Api.initialize(); state.session = await Api.request('/api/auth/session'); await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(); }
+  try { await Api.initialize(); authInitialized = true; state.session = await Api.request('/api/auth/session'); await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(); }
   catch (error) { if (error.status === 401) return renderLogin(); shellBuilt = false; app.replaceChildren(el('main', { class: 'main' }, empty(Api.mode === 'cloud' ? (['CLOUD_CONFIGURATION_REQUIRED', 'CLOUD_SCHEMA_REQUIRED', 'UNSAFE_DATABASE_ROLE'].includes(error.code) ? 'Cloud setup is incomplete' : 'HomeAuto is unavailable') : 'Home hub unavailable', Api.mode === 'cloud' ? (['CLOUD_CONFIGURATION_REQUIRED', 'CLOUD_SCHEMA_REQUIRED', 'UNSAFE_DATABASE_ROLE'].includes(error.code) ? 'Ask the home owner to finish cloud setup.' : 'Check your internet connection and try again.') : 'Check your local connection.', button('Try again', bootstrap)))); }
 }
 await bootstrap();

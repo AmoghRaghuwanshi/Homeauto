@@ -1,5 +1,13 @@
 # HomeAuto development checkpoint
 
+## Latest: production connection repair and public signup,2026-11-07
+
+The user authorized production test/deploy iteration, connected Vercel and Neon, then requested a real signup page. Existing project homeauto serves homeauto.amoghbuilds.tech. The Marketplace URL used neondb_owner; the guard rejected it. Production was verified empty, snapshotted, and initialized from unchanged001/002 after native checks on an isolated acceptance branch. Restricted pooled/direct runtime URLs, exact APP_BASE_URL, Node22 and disabled remote gates are configured. Deployment source0536222 is healthy200; unauthenticated session401. Real owner login/19 Chromium captures pass; no simulated device reports were added. Generated owner credentials are retained privately outside the checkout, never in source.
+
+Public signup is implemented in the working tree with additive003, strict validation/rate limits, atomic new-account/new-private-home creation, existing secure sign-in, four-theme responsive/signup and/login pages, Hindi, confirmation and accessible errors.161 backend tests and both focused browser lifecycles pass. The acceptance branch is upgraded to003 and native signup/duplicate checks pass. Complete auth/mobile/UX regressions, publication gates, compatible production deployment, production003/grants and live signup verification remain the immediate next steps. Do not deploy schema3 before the compatible application is Ready.
+
+Read docs/cloud/PRODUCTION_ACCEPTANCE.md. Evidence and non-public execution checkpoint: D:/homeauto-audit-tools/production-acceptance-20261107. Preserve the live local preview and existing original household files. Do not remove role guards or populate production with fake device observations. Native local Neon DNS and protected-preview access have recorded tooling limitations; the public production domain works. Keep prior checkpoints below as history.
+
 ## Latest: mobile verification and Vercel update instructions,2026-11-07
 
 Mobile fixes preserve the four themes/default05, navigation, preferences and every existing device/assistant capability. Short touch landscape screens use bottom navigation rather than clipping Settings below the sidebar. Mobile form text is at least16px; the About notices action has a full touch target. WebKit touch button activation now establishes the opener's focus before opening dialogs, so Cancel restores the button. No backend, SQL, firmware, MQTT topic or hardware policy changed.
