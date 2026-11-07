@@ -52,12 +52,13 @@ const entry = value => value && validPath(value.path) && typeof value.key === 's
 export class Navigation {
   constructor({ getSnapshot, onChange }) {
     this.getSnapshot = getSnapshot; this.onChange = onChange;
-    this.current = this.read(history.state); this.persist(); history.scrollRestoration = 'manual';
+    this.current = this.read(history.state); this.persist(true); history.scrollRestoration = 'manual';
     let scrolling = false;
     window.addEventListener('scroll', () => { if (scrolling) return; scrolling = true; const key = this.current.key; requestAnimationFrame(() => { scrolling = false; if (this.current.key === key) { this.current.scroll = [scrollX, scrollY]; this.persist(); } }); }, { passive: true });
     document.addEventListener('focusin', event => { if (!event.target.closest('dialog')) { this.current.focus = captureFocus(event.target); this.persist(); } });
     window.addEventListener('pagehide', () => this.save());
     window.addEventListener('popstate', event => {
+      clearTimeout(this.persistTimer);
       const previous = this.current; this.current = this.read(event.state);
       const direction = previous.trail.some(e => e.key === this.current.key) ? 'back' : 'forward';
       this.onChange({ direction, restore: true });
@@ -69,8 +70,15 @@ export class Navigation {
     if (value?.version === 1 && entry(value) && value.path === this.path() && Array.isArray(value.trail)) return { ...value, trail: value.trail.filter(entry).slice(-32) };
     return { version: 1, key: crypto.randomUUID(), path: this.path(), trail: [], scroll: [0, 0], focus: null };
   }
-  persist() { history.replaceState({ ...history.state, homeautoNavigation: this.current }, '', this.current.path); }
-  save() { this.current.scroll = [scrollX, scrollY]; this.current.focus = captureFocus(); this.persist(); }
+  persist(immediate = false) {
+    clearTimeout(this.persistTimer);
+    // Focus and scrolling can emit dozens of events per second. Keep the latest
+    // position in memory, then coalesce the history write; Safari limits writes.
+    if (!immediate) { this.persistTimer = setTimeout(() => this.persist(true), 300); return; }
+    if (this.path() === this.current.path && JSON.stringify(history.state?.homeautoNavigation) === JSON.stringify(this.current)) return;
+    history.replaceState({ ...history.state, homeautoNavigation: this.current }, '', this.current.path);
+  }
+  save() { this.current.scroll = [scrollX, scrollY]; this.current.focus = captureFocus(); this.persist(true); }
   destination() {
     const info = routeInfo(this.path(), this.getSnapshot());
     const previous = this.current.trail.at(-1);
@@ -97,7 +105,7 @@ export class Navigation {
   query(patch) {
     const url = new URL(location.href);
     for (const [key, value] of Object.entries(patch)) if (value === '' || value === null || value === undefined || value === 'all') url.searchParams.delete(key); else url.searchParams.set(key, String(value));
-    this.current.path = url.pathname + url.search; this.persist();
+    this.current.path = url.pathname + url.search; this.persist(true);
   }
   restore(focus = true) {
     window.scrollTo(...(this.current.scroll || [0, 0]));

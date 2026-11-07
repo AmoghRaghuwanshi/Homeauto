@@ -48,6 +48,19 @@ async function main() {
     }
     if (!functionalOnly) result.checks.push('Signup and sign-in in all four themes at320/390/844/1440 with touch and accessibility checks');
     await page.setViewportSize({ width: 390,height: 844 }); await signup();
+    const historyWrites = await page.evaluate(async () => {
+      const original = history.replaceState; let writes = 0;
+      history.replaceState = function (...args) { writes++; return original.apply(this, args); };
+      try {
+        const fields = [...document.querySelectorAll('form input')];
+        for (let i = 0; i < 120; i++) fields[i % fields.length].focus({ preventScroll: true });
+        for (let i = 0; i < 60; i++) window.dispatchEvent(new Event('scroll'));
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return writes;
+      } finally { history.replaceState = original; }
+    });
+    assert.ok(historyWrites <= 2, 'Focus/scroll bursts must coalesce history writes');
+    result.checks.push('Rapid focus and scroll changes preserve navigation without exhausting Safari history writes');
     const password = 'a long synthetic browser password';
     await page.getByLabel('Your name', { exact: true }).fill('New test owner'); await page.getByLabel('Username', { exact: true }).fill('new-browser-owner'); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByLabel('Confirm password', { exact: true }).fill(password + ' mismatch');
     await page.getByRole('button', { name: 'Create account', exact: true }).click(); await page.getByText('Passwords do not match.', { exact: true }).waitFor(); assert.equal(submissions, 0);
