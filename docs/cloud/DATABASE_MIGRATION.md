@@ -1,11 +1,11 @@
 # Database migration and preservation
 
-Signup adds003_self_service_signup.sql after the unchanged001/002 files. It adds only the registration function; existing identities and household/device data remain. Reapply the reviewed runtime grants after this migration. Deploy the schema2/3-compatible application first, then apply003 and grants atomically. Registration is unavailable until that step; existing sign-in remains compatible during rollout. The ledger checksum, role/RLS checks and snapshot/target verification still apply.
+Signup adds003_self_service_signup.sql after the unchanged001/002 files. It adds only the registration function; existing identities and household/device data remain. Reapply the reviewed runtime grants after this migration. Deploy the schema2/3-compatible application first, then apply003 and grants atomically. Registration is unavailable until that step; existing sign-in remains compatible during rollout. The ledger checksum, role/RLS checks and snapshot/target verification still apply. This rollout completed on the authorized production branch on2026-11-07; see [production acceptance](PRODUCTION_ACCEPTANCE.md).
 
 Publication verification adds forward migration002_bounded_maintenance.sql;
 001 is unchanged. The runner verifies both checksums/versions, installs missing
 migrations atomically and refuses unknown or altered history. Reapply reviewed
-runtime grants after upgrade; readiness now requires schema2. Version2 changes
+runtime grants after upgrade; the signup release accepts schema2 or3 during rollout. Version2 changes
 only expiry indexing/functions/maintenance privileges, not household/device or
 command data. On an authorized private maintenance scheduler, run the guarded
 operator command `maintain-global --apply` hourly; each pass deletes at most

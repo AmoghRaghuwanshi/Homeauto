@@ -1,6 +1,6 @@
 # Online PostgreSQL schema
 
-Implemented in `server/online/migrations/001_online.sql`; schema `homeauto_online`, migration ledger `public.homeauto_online_migrations`. This extends the existing local backend; it does not replace SQLite or the separate `homeauto_cloud` catalog mirror.
+Implemented in `server/online/migrations/001_online.sql`, with forward002 maintenance and003 private-home registration helpers; schema `homeauto_online`, migration ledger `public.homeauto_online_migrations`. This extends the existing local backend; it does not replace SQLite or the separate `homeauto_cloud` catalog mirror. The authorized production ledger is version3; original migrations remain immutable.
 
 | Tables | Purpose |
 |---|---|

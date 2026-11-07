@@ -1,5 +1,7 @@
 # Full system verification and publication
 
+Later authorized production work is recorded in [production acceptance](../cloud/PRODUCTION_ACCEPTANCE.md): restricted Neon configuration, schema3, live Vercel signup/auth and mobile/browser verification. The source-publication report below retains its original isolated scope and evidence; its no-production-work statement does not describe that later release.
+
 2026-11-07. Target: https://github.com/AmoghRaghuwanshi/Homeauto, main (same repository ID1448949260 after the user-approved rename). Source workspace D:/homeauto-main. This continues the existing implementation; prior tests are historical until rerun. No live household broker, physical relay/door/RFID, production database, cloud provisioning or domain change is part of this verification.
 
 ## Fresh software evidence

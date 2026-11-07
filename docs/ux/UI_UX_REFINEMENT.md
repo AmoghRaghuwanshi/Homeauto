@@ -1,5 +1,11 @@
 # UI and UX refinement
 
+## Cloud signup continuation — 2026-11-07
+
+Added a dedicated cloud `/signup` page and a visible Create account link on sign-in. Both screens share the existing auth layout, semantic theme tokens, native-font typography and mobile safe-area spacing. Signup adds accessible name/username/password/confirmation fields, explicit helper associations, visibility controls, localized errors, pending feedback and a separate sign-in success notice. Language switching preserves live drafts without persisting passwords; all four palettes and Theme05 default remain.
+
+Rapid live WebKit testing exposed excessive History API writes from focus and scroll events. Navigation now coalesces passive updates, skips unchanged state and flushes the latest position before explicit navigation/page hide. Browser Back/Forward remains native. A browser regression checks120 focus changes and60 scroll events without exhausting Safari's write limit. Test results and exact deployed source are recorded in [production acceptance](../cloud/PRODUCTION_ACCEPTANCE.md).
+
 Implemented 2026-11-05, continuing the existing application. The original
 four reference boards were inspected again and preserved. Before editing, 86
 source/document files were saved with hashes under

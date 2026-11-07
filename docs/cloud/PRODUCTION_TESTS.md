@@ -1,5 +1,11 @@
 # Cloud implementation verification
 
+## Current production continuation — 2026-11-07
+
+The earlier reproducible suites below remain isolated. Later user authorization added actual Neon branch/role/RLS checks, Vercel deployment and live public signup/sign-in/browser checks on the existing custom domain. Their exact evidence and tooling limits are in [production acceptance](PRODUCTION_ACCEPTANCE.md). No live physical controller was used. These production checks do not turn the older PGlite suite into a native networking/load test.
+
+## Original isolated implementation scope
+
 All tests use synthetic identities, disposable databases, loopback servers and fake MQTT publications. No broker, physical device, native microphone, Neon account, deployment or DNS record is contacted. Primary evidence directory: `D:/homeauto-audit-tools/production-cloud-20261107/evidence`. Earlier baseline/initial failures remain at `C:/Users/Amogh/.codex/audit-tools/homeauto-production-cloud-20261106`.
 
 ## Reproducible checks

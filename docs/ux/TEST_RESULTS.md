@@ -1,5 +1,15 @@
 # UI refinement verification
 
+## Live signup and Safari navigation continuation — 2026-11-07
+
+Release96d2429 passed all four [CI jobs](https://github.com/AmoghRaghuwanshi/Homeauto/actions/runs/42359856117): backend/build/syntax/UX/remediation/cloud, secrets and separate mobile/signup matrices in Chromium and WebKit. The signup suite covers32 auth layouts plus a Hindi accessibility capture per engine, all four themes, confirmation, visibility, duplicate errors, real synthetic account isolation and logout. Existing mobile coverage remains182 layouts/45 axe scans/43 screenshots per engine. All tests use disposable data and simulated hardware.
+
+Live Chromium on the existing production domain then passed8 groups/46 captures, including actual registration201, duplicate409, separate private home, sign-in, schema3 and logout401. A rapid live WebKit matrix exposed excessive History API writes. The repaired source d8eae6d passed the120-focus/60-scroll regression in both engines, all30 local UX groups and all four [CI jobs](https://github.com/AmoghRaghuwanshi/Homeauto/actions/runs/42386978810). The exact deployment and final live browser results are in [production acceptance](../cloud/PRODUCTION_ACCEPTANCE.md).
+
+Final actual-domain reruns on that deployed repair passed7 groups/46 screenshots in each engine: four themes on320/390/844/768/1440 widths, direct refresh/history, focus/scroll burst, existing QA account sign-in, isolated home/schema3, My home and logout401. Zero page errors, observed5xx or external requests. Screenshots and results are retained under D:/homeauto-audit-tools/production-acceptance-20261107/live-signup-{chromium,webkit}-verified. Phone and desktop captures were visually reviewed; real devices remain outside this automated evidence.
+
+Initial browser-cache selection, live navigation timeout and WebKit history-limit failures remain in external evidence. No physical hardware was tested. Native phone/keyboard/notch, screen reader, Hindi usability, protected-preview access, centralized runtime logs and WebKit cookie-enforcement limitations are recorded separately; automated results do not certify these.
+
 ## Cloud continuation,2026-11-07
 
 New cloud suite:11 scenario groups/66 screenshots and axe scans, four themes and375/390/768/1440 widths, with0 violations/page errors/external requests. Strict Vercel-header rerun also has0 application CSP errors;132 blocked axe-core inline style probes are separately source-attributed and retained, not hidden or used to weaken policy. Earlier scans without that tool restriction also report0 violations. No full manual/native accessibility certification is implied.

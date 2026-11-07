@@ -8,6 +8,12 @@ Secure host-only HttpOnly SameSite=Strict cookies contain random tokens; Postgre
 
 Shared database throttling covers reads/writes, login IP/username, reauth, gateway requests and per-device command requests. Login limits are 20/IP and 5/IP+username per 15min; hashing is concurrency bounded per instance. Normal user read/write budgets are 180/90 per minute, gateway 120/minute and light requests 20/device/minute. Infrastructure-level abuse controls and native multi-instance load still need staging validation. Responses/logs avoid raw SQL, URLs, passwords, tokens, key files and audio.
 
+## Public registration
+
+`/signup` is available in cloud mode and linked from sign-in. `POST /api/auth/signup` accepts only username, display_name and password, with the exact allowed Origin and JSON content type. Usernames normalize to lowercase and require3–32 letters/numbers/dots/dashes/underscores, beginning with a letter or number. Display names contain1–80 characters without control characters; passwords require12–256 characters. Hashing uses the existing scrypt verifier and shared bounded worker budget. Shared database limits allow5 signup attempts/IP/hour and50 globally/hour;429 responses include Retry-After.
+
+Migration003's restricted SECURITY DEFINER helper creates the user, a new private household, its owner membership and signup audit record in one transaction. A caller cannot choose a household or role. Unique-name conflicts roll back the full operation and return409; success returns201 without issuing a session. Sign-in remains a separate step. Registration never joins an existing owner's home or reveals its devices. PUBLIC execution and direct runtime access to credential tables remain denied. Browser password/confirmation drafts stay in memory and are not persisted. The local hub's operator setup flow is retained.
+
 ## Operator recovery and administration
 
 `online-operator.js` requires `--apply`, explicit administrative approval, direct non-pooler URL and matching expected database name before connecting. Verify the branch/project independently. Except initial migration, mutations require the schema-owner operator. Runtime role grants/owner rejection are described in [schema](NEON_SCHEMA.md).
@@ -16,4 +22,4 @@ Supported commands: `household NAME`, `create-user HOUSEHOLD_UUID USERNAME DISPL
 
 Gateway credentials are separate, expiring and scoped. The schema/runtime cannot authenticate a browser with a gateway token. Requests require HTTPS; certificate verification cannot be disabled by URL SSL parameters. Local remote-light enablement also requires authenticated MQTTs configuration and explicit secure-gateway approval, which is a policy gate, not automatic proof that AUD-001/002/003 are resolved.
 
-Software tests cover roles/RLS/CSRF/replay/revocation/races, not a penetration-test certificate. No cloud keys, accounts, deployments or physical hardware were changed.
+Software tests cover roles/RLS/CSRF/replay/revocation/races, not a penetration-test certificate. The later authorized production configuration, deployment, account and additive migration checks are recorded in [production acceptance](PRODUCTION_ACCEPTANCE.md). Physical hardware was not operated.

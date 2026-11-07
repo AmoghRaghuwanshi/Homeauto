@@ -1,5 +1,11 @@
 # Unslop content audit
 
+## Signup continuation —2026-11-07
+
+Continued the installed2.3.0 audit-first/core-contract process for the new cloud registration flow. The prior cloud sign-in instruction “Set up an owner on the home hub first.” contradicted public cloud signup; it is now shown only for local hub setup. Cloud sign-in links to “Create account”. The signup explanation states the operational boundary: “New accounts get a separate home. Devices connect through your home gateway.” This avoids implying automatic access to an existing household.
+
+Kept clear labels, the12-character minimum, duplicate-name feedback and the separate sign-in confirmation. Removed redundant introductory form text rather than adding promotional copy. Language choices use the endonyms English/हिन्दी so the way back remains recognizable. New Hindi messages were reviewed manually, without English scanner claims; native-speaker acceptance remains open. Hardware/security warnings and assistant success meanings are unchanged. This continuation records manual contextual findings, not a new automated scanner score or a claim that skill installation changes visual design.
+
 ## Cloud integration —2026-11-07
 
 Loaded the installed2.3.0 skill/core contract/cleanup/rewrite/fact-preservation/crisp-human references. Audited actual cloud labels, network/authentication errors, capability notes and assistant responses before editing. Clear existing labels and operational warnings were retained. Confirmed corrections:

@@ -49,6 +49,8 @@ continue to traverse the native browser stack.
 
 ## History, restoration and transient state
 
+Passive focus/scroll changes update the current entry in memory and coalesce History API writes over300ms. Unchanged entries do not produce a replaceState call. Explicit navigation, query changes and page hide flush pending state; popstate cancels a pending write before reading the restored entry. This keeps frequent focus/scroll events within Safari's history-write budget while retaining native Back/Forward and list restoration. Public cloud `/login` and `/signup` use normal internal links and direct-route fallback; signed-in visits to either replace the route with Home. Passwords never enter history state.
+
 `Navigation` owns `pushState`, `replaceState` and `popstate`. Selecting the current
 destination does not add a duplicate history entry. Native links retain their
 hrefs, modifier-key behavior, new-tab behavior and fragment links.

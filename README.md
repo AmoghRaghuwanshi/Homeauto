@@ -4,14 +4,17 @@ This repository contains two supported runtimes: the offline household hub and
 an optional authenticated Vercel/Neon cloud API. Start with
 [deployment readiness](docs/cloud/DEPLOYMENT_READINESS.md) and
 [full verification](docs/verification/FULL_SYSTEM_VERIFICATION.md).
-Git-triggered Vercel deployment is deliberately disabled until a separate
-staging/deployment review. Publishing source does not activate hardware.
+The cloud site is live at [HomeAuto](https://homeauto.amoghbuilds.tech).
+[Create an account](https://homeauto.amoghbuilds.tech/signup) or
+[sign in](https://homeauto.amoghbuilds.tech/login). Each new account gets a private
+home; devices require gateway enrollment. Git-triggered deployment stays disabled;
+tested releases are deployed explicitly. Publishing source does not activate hardware.
 
 A local Node/Express smart-home hub with four themes, Hindi/English interface,
 authenticated controls and CPU speech workers. The active app uses vanilla ES
 modules; no build step, CDN, cloud identity or cloud speech service is required.
 
-The software is implemented and tested in isolation. Household release remains
+The software has isolated tests and real cloud signup/auth checks. Physical household release remains
 blocked on supervised firmware/broker/door safety checks and human speech and
 accessibility trials. See [implementation journal](HomeAuto_UIUX_Docs/IMPLEMENTATION_JOURNAL.md).
 
@@ -69,6 +72,9 @@ The mobile suite also covers WebKit: install with
 `npm exec --prefix server -- playwright install chromium webkit`, then run
 `npm --prefix server run test:mobile` and
 `npm --prefix server run test:mobile -- --browser=webkit`.
+Use `npm --prefix server run test:signup -- --browser=chromium` and
+`npm --prefix server run test:signup -- --browser=webkit` for the isolated account,
+auth-screen, theme, accessibility and history-write regressions.
 Native speech tests (`test:speech`, `test:voice-browser` in server) separately
 need FFmpeg, installed local models and the pinned Python environment. Fixtures
 are synthetic and hardware responses are simulated. Tests do not prove physical
