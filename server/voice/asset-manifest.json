@@ -1,0 +1,214 @@
+[
+  {
+    "kind": "stt",
+    "file": "en/am/final.mdl",
+    "bytes": 15962575,
+    "sha256": "75370a0137f9daf8f469dedd7daa4513ae7a621f03240c6e512e2b50b656a7b6",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/conf/mfcc.conf",
+    "bytes": 131,
+    "sha256": "1e2228006d01d805ad1c267fee9f79709ca87ac51bd82b0e3f5c69ba543f0fc4",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/conf/model.conf",
+    "bytes": 290,
+    "sha256": "8f14cb1eeb07c762c371db648c6be688d347236155ca0f64fb13b6567a8ce81f",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/graph/disambig_tid.int",
+    "bytes": 102,
+    "sha256": "9ad87cc166d0998f08f758f47a6223a120dfffcbee805c4849c3aa5e6bb3c0fc",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/graph/Gr.fst",
+    "bytes": 24013795,
+    "sha256": "023c8b7e30704a9e37765c635c252e608a02f361235bf94abdcf2a5225d85b20",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/graph/HCLr.fst",
+    "bytes": 22416994,
+    "sha256": "5caafba3081e1646545ac6bff0dd7a318e53dcbdc86f237909ce1d2ac1293d34",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/graph/phones/word_boundary.int",
+    "bytes": 1761,
+    "sha256": "da199d9c991e0e84681ddbb34627b915b26302d50a8fdaa23c51e2bc3a50b5c3",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/ivector/final.dubm",
+    "bytes": 168048,
+    "sha256": "8c5d7dd69d2122313baaf19f61f35dd3fa18b70c62ac0687e311e1c46e6daca7",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/ivector/final.ie",
+    "bytes": 8288887,
+    "sha256": "3f37faf90c375b9e4740b569398b5829ed9cc07d19be6d441f72c3b71d7efcc6",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/ivector/final.mat",
+    "bytes": 44975,
+    "sha256": "ddd83586dc5f928cda8738b922c85ffe38fc789cb5f9151a712ca12f37265382",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/ivector/global_cmvn.stats",
+    "bytes": 1080,
+    "sha256": "33be09afcc80059847a275c3d043b51f1ab954c7c2438ddbbf4745e8ba144ff9",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/ivector/online_cmvn.conf",
+    "bytes": 95,
+    "sha256": "a2f3571754b64297cb7efb2e7ca3df61995c5a45fcbb97188f90613552bb2dfe",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/ivector/splice.conf",
+    "bytes": 35,
+    "sha256": "9f0c5f7c82d18eaf25d8bce470efa9f7741f88411fe428774bc0a9bb69a24756",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "en/README",
+    "bytes": 199,
+    "sha256": "c0cf286e4f7783306c5f6469b37db69228fb16803b03cae661edb2d7bba64ebb",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/am/final.mdl",
+    "bytes": 15957444,
+    "sha256": "c5d7ea51a074bc64430137a74fc8a0a06097df485a3d356cf37d2d78ef6bd712",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/conf/mfcc.conf",
+    "bytes": 128,
+    "sha256": "31dab8bb1dea9b33e039988ac079dfe5d50ebaa4a94826b9f9adc8fe84b147c6",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/conf/model.conf",
+    "bytes": 289,
+    "sha256": "d8d91d310a9659fed2d89f8ea4996af6163a43c3ab008cd278e4264120551712",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/graph/disambig_tid.int",
+    "bytes": 66,
+    "sha256": "3f87fd5a92742b3827d2da31dae0874c4077e9f0011e507423b6f876d743e37b",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/graph/Gr.fst",
+    "bytes": 30692365,
+    "sha256": "9b219e22fc7d3033ba1b175757a700d8f02139d75d7f57cc12bc318d53038ccf",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/graph/HCLr.fst",
+    "bytes": 25289514,
+    "sha256": "4f36aad2566853473603abc66fac3985eff0860229c465540b348c22fcbbb4f5",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/graph/phones/word_boundary.int",
+    "bytes": 2481,
+    "sha256": "b8f981d84d8765fb15003ac54ec0f9599efa65a00d6d4d60086e5969ad45ff01",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/ivector/final.dubm",
+    "bytes": 168048,
+    "sha256": "e495541a7e99e78a42cd098adfd94a72b6118a8c0d3c5ea8fe17436b578c55d4",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/ivector/final.ie",
+    "bytes": 9927287,
+    "sha256": "89d91ca6e99e7e4f067b3ef8ac1faa9ba73276c225d927aaa296492a03a639b7",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/ivector/final.mat",
+    "bytes": 44975,
+    "sha256": "3009aea21b59ad36f86c89d68dd152264aa3a784260dbdace823d991f3ff71b4",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/ivector/global_cmvn.stats",
+    "bytes": 1074,
+    "sha256": "a056b7592116d4a5e5fc6f872f8398190878bb6690bf486827fa79dabaf33f97",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/ivector/online_cmvn.conf",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/ivector/splice.conf",
+    "bytes": 35,
+    "sha256": "9f0c5f7c82d18eaf25d8bce470efa9f7741f88411fe428774bc0a9bb69a24756",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "kind": "stt",
+    "file": "hi/README",
+    "bytes": 460,
+    "sha256": "9ffae7d857a7671a0a53b9f6f432e7c312459fde02ca1f139d808fffc3d2644a",
+    "provenance": "Existing Vosk baseline, hashed locally; see OFFLINE_AI.md"
+  },
+  {
+    "file": "kokoro-v1.0.onnx",
+    "bytes": 325505369,
+    "sha256": "beb0d1848dee9a49da392cc3df26958d46cfa35d321edf434f52949153f0df3a",
+    "source": "https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1",
+    "kind": "tts",
+    "config": "TTS_MODEL"
+  },
+  {
+    "file": "voices-v1.0.bin",
+    "bytes": 28214398,
+    "sha256": "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d",
+    "source": "https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1",
+    "kind": "tts",
+    "config": "TTS_VOICES"
+  }
+]

@@ -1,0 +1,12 @@
+[
+  { "id": "C01", "before": "Simple controls. A calmer day.", "after": "Simple controls.", "reason": "Remove the uninformative benefit slogan; retain the practical description." },
+  { "id": "C02", "before": "A little peace of mind.", "after": "Doors, access cards and sensors.", "reason": "Replace the vague Security subtitle with the actual content of that screen." },
+  { "id": "C03", "before": "Make yourself at home.", "after": "", "reason": "Remove a decorative Settings subtitle that adds no instruction or information." },
+  { "id": "C04", "before": "Four ways to feel at home", "after": "Choose from four themes", "reason": "Name the actual choice and preserve the four-theme count." },
+  { "id": "C05", "before": "Larger, clearer, easier.", "after": "Larger text and controls.", "reason": "Name the implemented Comfort-theme differences rather than subjective benefits." },
+  { "id": "C06", "before": "Calm whites. A little emerald.", "after": "White surfaces and emerald accents.", "reason": "Describe the same colors without decorative fragments." },
+  { "id": "C07", "before": "Your home, at a glance.", "after": "Requests, controller reports and access events.", "reason": "The Activity screen displays events; its original subtitle described a home overview." },
+  { "id": "C08", "before": "Controller reports Unavailable", "after": "Door status unavailable", "reason": "For a stale observation, unavailable is the app's freshness assessment, not a new controller report. Preserve that uncertainty explicitly." },
+  { "id": "C09", "before": "normal", "after": "No alert reported", "reason": "Display the gas report without implying that an uncalibrated sensor proves safety. The wire payload remains unchanged." },
+  { "id": "C10", "before": "clear", "after": "No motion reported", "reason": "Describe the current PIR report without suggesting proof that the room is empty. The last-report caveat remains verbatim." }
+]

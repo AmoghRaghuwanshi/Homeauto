@@ -1,0 +1,23 @@
+HomeAuto 2.0.0 — third-party and asset notices
+
+The house illustration, favicon and line icons in this application were created
+for HomeAuto. Reference concept boards are design guidance, not shipped assets.
+No remotely hosted fonts, icons, illustrations or speech APIs are used.
+
+Installed JavaScript packages retain their upstream licenses in server/node_modules:
+Express / MIT; pg / MIT; @vercel/functions / Apache-2.0;
+MQTT.js / MIT; ws / MIT; sql.js / MIT; selfsigned / MIT;
+Vosk / Apache-2.0; Playwright / Apache-2.0 (development only);
+axe-core / MPL-2.0 (development only). Transitive notices remain in each package.
+
+Locally provisioned speech components are outside the served source tree:
+Vosk small English/Hindi models / Apache-2.0 (model distribution notices apply).
+Kokoro-82M model weights / Apache-2.0; kokoro-onnx adapter / MIT;
+ONNX Runtime / MIT; eSpeak NG phonemizer / GPL-3.0-or-later.
+whisper.cpp / MIT; Whisper models / MIT (benchmark tools only).
+See HomeAuto_UIUX_Docs/OFFLINE_AI.md and the local manifests for provenance.
+
+This is a local development installation, not a redistributable speech bundle.
+Before distributing executables, weights or voice data, collect corresponding
+license texts, eSpeak source obligations and verify individual voice notices.
+No voice cloning or recording of a real person's voice was performed.

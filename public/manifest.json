@@ -1,0 +1,1 @@
+{"name":"HomeAuto","short_name":"HomeAuto","description":"Private local smart-home controls and Shrimaan assistant","start_url":"/","scope":"/","display":"standalone","background_color":"#F8F9F7","theme_color":"#166F46","icons":[{"src":"/assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}

@@ -1,0 +1,30 @@
+user homeauto-hub
+topic read home/light/+/status
+topic read home/door/1/status
+topic read home/door/1/rfid
+topic read home/sensor/+/data
+topic read home/esp32/+/online
+topic write home/light/1/command
+topic write home/light/2/command
+topic write home/light/3/command
+topic write home/light/4/command
+topic write home/door/1/command
+
+user esp32-lights
+topic read home/light/1/command
+topic read home/light/2/command
+topic read home/light/3/command
+topic read home/light/4/command
+topic write home/light/1/status
+topic write home/light/2/status
+topic write home/light/3/status
+topic write home/light/4/status
+topic write home/sensor/gas/data
+topic write home/sensor/motion/data
+topic write home/esp32/lights/online
+
+user esp32-door
+topic read home/door/1/command
+topic write home/door/1/status
+topic write home/door/1/rfid
+topic write home/esp32/door/online

@@ -1,0 +1,27 @@
+{
+  "name": "homeauto-cloud-runtime",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Vercel cloud API and static HomeAuto frontend; native IoT and speech stay on the hub",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "build": "node scripts/verify-cloud-build.js",
+    "test:publication": "node scripts/verify-publication.js",
+    "test": "npm --prefix server test",
+    "test:online": "npm --prefix server run test:online",
+    "cloud:operator": "node server/scripts/online-operator.js"
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.11.0",
+    "express": "^4.22.3",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@vercel/nft": "^1.11.1"
+  },
+  "overrides": {
+    "@vercel/nft": { "glob": "^14.0.4" }
+  }
+}

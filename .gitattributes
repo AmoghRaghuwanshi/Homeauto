@@ -1,0 +1,6 @@
+* text=auto eol=lf
+# Migration ledgers hash exact bytes; never let checkout rewrite SQL line endings.
+*.sql -text
+*.png -text
+*.jpg -text
+*.jpeg -text

@@ -1,0 +1,18 @@
+# Template only: adapt paths and certificate trust to the actual installation.
+# No public listener, anonymous access, websocket listener or command persistence.
+listener 8883 127.0.0.1
+protocol mqtt
+allow_anonymous false
+password_file C:/private/homeauto/mqtt-passwords
+acl_file C:/private/homeauto/homeauto.acl
+cafile C:/private/homeauto/ca.crt
+certfile C:/private/homeauto/broker.crt
+keyfile C:/private/homeauto/broker.key
+tls_version tlsv1.2
+persistence false
+max_packet_size 4096
+max_inflight_messages 10
+max_queued_messages 1
+# For ESP32 TLS, bind to the specific private LAN interface, firewall that subnet
+# and provision independent board credentials plus CA validation in firmware.
+# Current legacy sketches are anonymous/plain TCP and cannot use this listener.
