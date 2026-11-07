@@ -2,7 +2,21 @@
 
 Prepared, not deployed. Root `package.json` is the lean Node 22 cloud runtime; `server/package.json` remains the local hub/native speech runtime. `vercel.json` serves `public`, rewrites API routes to `api/index.js`, then provides SPA fallback for nested app routes. No Next.js migration is involved. The API restores the rewritten path, validates platform-parsed bodies, lazily creates a restricted PostgreSQL pool and attaches Vercel pool lifecycle handling. DDL and native speech never run during requests.
 
-`npm ci --ignore-scripts` then `npm run build` runs the committed bundle guard. It traces the function and rejects SQLite runtime/data, MQTT/native voice modules, model files and certificates. `.vercelignore` and `.gitignore` exclude local databases, private environment files, credentials, native assets and generated outputs. The source workspace currently has no Git metadata; exclusions are prepared, not evidence of a clean remote commit. Do not upload the hub's whole private runtime as deployment input.
+`npm ci --ignore-scripts` then `npm run build` runs the committed bundle guard. It traces the function and rejects SQLite runtime/data, MQTT/native voice modules, model files and certificates. `.vercelignore` and `.gitignore` exclude local databases, private environment files, credentials, native assets and generated outputs. The sanitized source is published to [AmoghRaghuwanshi/Homeauto](https://github.com/AmoghRaghuwanshi/Homeauto); exact manifest, secret scans, Actions and anonymous-clone evidence are in [publication verification](../verification/GITHUB_PUBLICATION_REPORT.md). Do not upload the hub's whole private runtime as deployment input.
+
+## Import selections
+
+| Vercel field | Selection |
+|---|---|
+| Repository / branch | AmoghRaghuwanshi/Homeauto / main |
+| Framework Preset | Other |
+| Root Directory | Repository root (`./`), not server |
+| Node.js Version | 22.x |
+| Install Command | `npm ci --ignore-scripts` |
+| Build Command | `npm run build` |
+| Output Directory | `public` |
+
+Git-triggered deployment remains disabled by `git.deploymentEnabled=false` in vercel.json. These selections prepare an import; a separately reviewed staging deployment still needs restricted database configuration and the acceptance checks below. Do not enable the remote-light flags when importing.
 
 ## Environment setup after approval
 
