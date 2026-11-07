@@ -1,6 +1,6 @@
 # Full system verification and publication checkpoint
 
-2026-11-07. Target: https://github.com/AmoghRaghuwanshi/Hosmeauto, main. Source workspace D:/homeauto-main. This continues the existing implementation; prior tests are historical until rerun. No live household broker, physical relay/door/RFID, production database, cloud provisioning or domain change is part of this verification.
+2026-11-07. Target: https://github.com/AmoghRaghuwanshi/Homeauto, main (same repository ID1448949260 after the user-approved rename). Source workspace D:/homeauto-main. This continues the existing implementation; prior tests are historical until rerun. No live household broker, physical relay/door/RFID, production database, cloud provisioning or domain change is part of this verification.
 
 ## Fresh software evidence
 

@@ -18,7 +18,7 @@ accessibility trials. See [implementation journal](HomeAuto_UIUX_Docs/IMPLEMENTA
 ## Run the isolated preview
 
 ```powershell
-Set-Location Hosmeauto
+Set-Location Homeauto
 npm ci --ignore-scripts
 npm ci --ignore-scripts --prefix server
 Set-Location server
@@ -55,7 +55,7 @@ bundled certificate/key is never read by the new runtime.
 ## Verify
 
 ```powershell
-Set-Location Hosmeauto
+Set-Location Homeauto
 npm run test:publication
 npm run build
 npm test
@@ -91,7 +91,7 @@ SHA256 manifest in `.local/backups/baseline-20261105` before implementation.
 
 ## Cloud deployment selection
 
-Import AmoghRaghuwanshi/Hosmeauto, main branch. Select **Other** as Framework
+Import AmoghRaghuwanshi/Homeauto, main branch. Select **Other** as Framework
 Preset, repository root (`./`), Node22.x, build `npm run build`, output `public`,
 install `npm ci --ignore-scripts`. Keep cloud/gateway remote-light gates OFF.
 Use an approved isolated Neon branch and restricted pooled DATABASE_URL for the

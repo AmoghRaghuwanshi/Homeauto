@@ -10,6 +10,7 @@ const { Sessions, authorize, hash } = require('../auth/sessions');
 const { resolveCommand, detectWakeWord } = require('../voice/intent');
 const { uid } = require('../lib/errors');
 const { devices } = require('../lib/registry');
+const { legacyBytes } = require('./helpers/legacy-fixture');
 const rooms = [...new Map(devices.map(d => [d.room_id, { id: d.room_id, name: d.location }])).values()];
 const actor = { user_id: 'test-user', role: 'owner', can_unlock: true, token_hash: 'test-session', reauth_at: Date.now() };
 async function fixture(t, options = {}) {
@@ -20,14 +21,14 @@ async function fixture(t, options = {}) {
   return { repo, home, published, advance: ms => { now += ms; } };
 }
 const request = (home, id = 'light-1', action = 'on', extra = {}) => home.request(id, { action, idempotency_key: crypto.randomUUID(), ...extra }, actor);
-test('HA-002 importing app/lifecycle has no production database writes or sockets', () => {
-  const filename = path.join(__dirname, '../db/home_auto.db'); const before = crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
-  const { createApp } = require('../app'); const { startRuntime } = require('../server'); assert.equal(typeof createApp, 'function'); assert.equal(typeof startRuntime, 'function');
-  assert.equal(crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex'), before);
+test('HA-002 importing app/lifecycle has no production database writes or sockets', async t => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'homeauto-import-'));t.after(()=>fs.rmSync(dir,{recursive:true}));const filename=path.join(dir,'sentinel.db');fs.writeFileSync(filename,await legacyBytes());const before=fs.readFileSync(filename);
+  const script=`const fs=require('fs'),net=require('net'),assert=require('assert/strict');process.env.HOMEAUTO_DB_PATH=${JSON.stringify(filename)};const deny=()=>{throw new Error('Import performed filesystem mutation or network operation');};for(const name of ['writeFileSync','writeFile','appendFileSync','appendFile','renameSync','mkdirSync','unlinkSync'])fs[name]=deny;net.Server.prototype.listen=deny;net.Socket.prototype.connect=deny;const {createApp}=require(${JSON.stringify(path.resolve(__dirname,'../app'))});const {startRuntime}=require(${JSON.stringify(path.resolve(__dirname,'../server'))});assert.equal(typeof createApp,'function');assert.equal(typeof startRuntime,'function');`;
+  require('child_process').execFileSync(process.execPath,['-e',script],{windowsHide:true,stdio:'pipe'});assert.deepEqual(fs.readFileSync(filename),before);
 });
 test('migrate a copy of legacy database preserving all IDs/logs; restart idempotent', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'homeauto-migrate-')); t.after(() => fs.rmSync(dir, { recursive: true }));
-  const filename = path.join(dir, 'test.db'); fs.copyFileSync(path.join(__dirname, '../db/home_auto.db'), filename);
+  const filename = path.join(dir, 'test.db'); fs.writeFileSync(filename,await legacyBytes());
   let repo = await createRepository({ filename }); const count = repo.one('SELECT COUNT(*) AS n FROM activity_log').n; assert.equal(count, 44); assert.equal(repo.getDevices().length, 7); assert.ok(fs.existsSync(filename + '.pre-v5.bak')); repo.close();
   repo = await createRepository({ filename }); assert.equal(repo.one('SELECT COUNT(*) AS n FROM activity_log').n, count); assert.equal(repo.one('PRAGMA user_version').user_version, 5); repo.close();
 });
@@ -91,7 +92,7 @@ test('idle/absolute session expiry and expired throttle entries recover', async 
 });
 test('retention preserves historical baseline and active alerts; daily backup rotates seven', async t => {
   const {maintain,dailyBackup}=require('../db/maintenance'); const dir=fs.mkdtempSync(path.join(os.tmpdir(),'homeauto-maintain-')); t.after(()=>fs.rmSync(dir,{recursive:true}));
-  const filename=path.join(dir,'test.db'); fs.copyFileSync(path.join(__dirname,'../db/home_auto.db'),filename); const repo=await createRepository({filename}); t.after(()=>repo.close());
+  const filename=path.join(dir,'test.db'); fs.writeFileSync(filename,await legacyBytes()); const repo=await createRepository({filename}); t.after(()=>repo.close());
   repo.write("INSERT INTO activity_log(timestamp,event_type) VALUES('2000-01-01','test_old')");
   repo.write("INSERT INTO alerts(id,kind,severity,state,opened_at,last_seen_at) VALUES('keep','gas','critical','active','2000-01-01','2000-01-01')");
   maintain(repo); assert.equal(repo.one('SELECT COUNT(*) AS n FROM activity_log').n,44); assert.equal(repo.one("SELECT state FROM alerts WHERE id='keep'").state,'active');
