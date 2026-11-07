@@ -61,3 +61,27 @@ jobs:
           name: simulated-cloud-qa
           path: .local/qa/online
           retention-days: 3
+  mobile:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci --ignore-scripts --prefix server
+      - run: npm exec --prefix server -- playwright install --with-deps ${{ matrix.browser }}
+      - run: npm --prefix server run test:mobile -- --browser=${{ matrix.browser }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: simulated-mobile-${{ matrix.browser }}
+          path: .local/qa/mobile/${{ matrix.browser }}
+          retention-days: 3

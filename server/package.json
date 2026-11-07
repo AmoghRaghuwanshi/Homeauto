@@ -17,6 +17,7 @@
     "test:cloud-staging": "node scripts/cloud-staging-check.js",
     "cloud": "node scripts/cloud.js",
     "test:browser": "node scripts/browser-check.js",
+    "test:mobile": "node scripts/mobile-check.js",
     "test:ux": "node scripts/ux-check.js",
     "test:remediation": "node scripts/remediation-check.js",
     "test:voice-browser": "node scripts/native-browser-check.js",

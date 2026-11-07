@@ -65,6 +65,10 @@ node server/scripts/online-browser-check.js
 ```
 
 Browser tests need `npm exec --prefix server -- playwright install chromium`.
+The mobile suite also covers WebKit: install with
+`npm exec --prefix server -- playwright install chromium webkit`, then run
+`npm --prefix server run test:mobile` and
+`npm --prefix server run test:mobile -- --browser=webkit`.
 Native speech tests (`test:speech`, `test:voice-browser` in server) separately
 need FFmpeg, installed local models and the pinned Python environment. Fixtures
 are synthetic and hardware responses are simulated. Tests do not prove physical

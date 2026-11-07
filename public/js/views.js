@@ -273,7 +273,7 @@ export async function renderView(ctx) {
     if (!secondary) return settingsIndex(ctx);
     if (secondary === 'appearance') return appearanceView(); if (secondary === 'accessibility') return accessibilityView(); if (secondary === 'language') return languageView();
     if (secondary === 'voice') return voiceSettings(ctx); if (secondary === 'notifications') return notificationsView(ctx); if (secondary === 'home') return homeSettings(ctx); if (secondary === 'privacy') return privacyView(ctx); if (secondary === 'help') return helpView();
-    if (secondary === 'about') return el('div', { class: 'settings-wrap stack' }, title('About'), el('section', { class: 'card stack' }, el('h2', {}, 'HomeAuto'), el('p', { class: 'muted' }, t('Your home stays yours.')), el('p', {}, Api.mode === 'cloud' ? '2.0.0. Vercel / Express. PostgreSQL. Local MQTT gateway' : '2.0.0. Node / Express. sql.js. MQTT. Vosk. Kokoro ONNX'), link('Open-source notices', '/assets/NOTICE.txt')));
+    if (secondary === 'about') return el('div', { class: 'settings-wrap stack' }, title('About'), el('section', { class: 'card stack' }, el('h2', {}, 'HomeAuto'), el('p', { class: 'muted' }, t('Your home stays yours.')), el('p', {}, Api.mode === 'cloud' ? '2.0.0. Vercel / Express. PostgreSQL. Local MQTT gateway' : '2.0.0. Node / Express. sql.js. MQTT. Vosk. Kokoro ONNX'), link('Open-source notices', '/assets/NOTICE.txt', 'button button-secondary')));
     if (secondary === 'advanced') return advancedView(ctx, third === 'ai');
     if (secondary === 'devices') return el('div', { class: 'stack' }, title('Devices', 'Manage devices'), el('div', { class: 'device-grid' }, state.snapshot.devices.map(d => deviceCard(d, ctx, { manage: true }))));
   }

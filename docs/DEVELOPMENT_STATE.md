@@ -1,5 +1,13 @@
 # HomeAuto development checkpoint
 
+## Latest: mobile verification and Vercel update instructions,2026-11-07
+
+Mobile fixes preserve the four themes/default05, navigation, preferences and every existing device/assistant capability. Short touch landscape screens use bottom navigation rather than clipping Settings below the sidebar. Mobile form text is at least16px; the About notices action has a full touch target. WebKit touch button activation now establishes the opener's focus before opening dialogs, so Cancel restores the button. No backend, SQL, firmware, MQTT topic or hardware policy changed.
+
+New test:mobile runs in Chromium and WebKit: each passes182 layouts,45 accessibility scans and43 screenshots with0 violations/errors/external requests. Includes six phone sizes/orientations,20 secondary routes, all themes, Hindi/large controls, short-height modal/assistant tasks and tablet/desktop checks. Initial failures and controlled WebKit before/after focus evidence are retained at D:/homeauto-audit-tools/mobile-20261107; see docs/ux/TEST_RESULTS.md. Syntax93 files/build456 traced files pass. CI now includes separate mobile jobs. Real phone/soft-keyboard/notch/screen-reader acceptance remains unverified.
+
+The user reports their Vercel site still shows an older version. Repository config deliberately retains git.deploymentEnabled=false. Manual instructions: check Settings → Git points to AmoghRaghuwanshi/Homeauto/main, then Deployments → Create Deployment using the tested commit or the main branch URL. Redeploy on an older deployment rebuilds its source. See docs/cloud/VERCEL_DEPLOYMENT.md. No Vercel deployment, setting, environment value or domain was changed by the agent. Keep the existing port3001 simulated preview running.
+
 ## Latest: system verification and public publication,2026-11-07
 
 Publication target is the public AmoghRaghuwanshi/Homeauto main. GitHub renamed the original Hosmeauto repository during the task, preserving ID1448949260; the user explicitly chose Homeauto. Existing code/context is retained. Git uses the configured owner noreply identity. No force push occurred. Git-triggered Vercel deployments are disabled in config; post-publication GitHub API checks found0 deployments/hooks. No cloud provisioning, DNS, live DB or physical hardware operation is authorized by source publication.

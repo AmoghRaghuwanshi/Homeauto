@@ -85,3 +85,13 @@ Final new cloud QA:11 scenario groups,66 screenshots/axe scans at375/390/768/144
 
 Evidence: D:/homeauto-audit-tools/production-cloud-20261107/evidence/browser-verified and hallmark/static-final.json. Native phone/notch/zoom/NVDA/Hindi/older-user acceptance remains open. See docs/cloud/PRODUCTION_TESTS.md and DEPLOYMENT_READINESS.md for backend/cloud boundaries and external gates. Earlier refinement history follows unchanged.
 
+## Mobile follow-up — 2026-11-07
+
+The phone layout retains all five primary destinations, all four approved palettes, theme05 default, secondary screens and device/assistant capabilities. No features were removed to make the layout fit.
+
+The baseline exposed Settings below the viewport in an844×390 touch layout: its navigation target extended from408px to478px. Short touch screens up to1023px wide now use bottom navigation, with the inherited tablet top margin removed. The bar respects left/right/bottom safe-area insets; the content retains its bottom clearance. Other compact sidebars can scroll vertically rather than hiding destinations on short windows.
+
+Mobile/tablet form text now has a16px minimum while honoring larger theme/accessibility settings. About's standalone notices link uses the standard full touch target. Shared button activation establishes focus without scrolling before an action opens a modal. A controlled WebKit comparison confirmed that the previous behavior restored MAIN after closing Add room; the corrected behavior restores the Add room button. This also keeps logical focus available to keyboard and assistive-technology users after a touch action.
+
+The new test:mobile script checks phone portrait/landscape, all themes, Hindi, large text/controls, detail screens, form sizes, touch targets, modal focus, short-height scrolling, typed assistant requests and tablet/desktop layouts. CI runs Chromium and WebKit as separate isolated jobs with synthetic screenshots. Native iPhone/Android hardware, real soft-keyboard overlays, notch measurements and screen-reader usability still require device acceptance. Browser-emulated WebKit is not certification of every Safari release.
+

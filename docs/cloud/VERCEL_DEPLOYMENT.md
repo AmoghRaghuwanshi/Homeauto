@@ -18,6 +18,18 @@ Prepared, not deployed. Root `package.json` is the lean Node 22 cloud runtime; `
 
 Git-triggered deployment remains disabled by `git.deploymentEnabled=false` in vercel.json. These selections prepare an import; a separately reviewed staging deployment still needs restricted database configuration and the acceptance checks below. Do not enable the remote-light flags when importing.
 
+## Update an existing Vercel site
+
+Pushing to GitHub updates the source repository. It does not update this site's deployment while automatic Git deployment is disabled.
+
+1. In the existing Vercel project, check Settings → Git connects to AmoghRaghuwanshi/Homeauto. Check Production branch tracking uses main.
+2. Open Deployments → Create Deployment (it may be in the header's three-dot menu).
+3. Enter the exact verified commit SHA, or https://github.com/AmoghRaghuwanshi/Homeauto/tree/main to build current main. Use the existing project's reviewed environment settings. Check the selected source commit before creating the deployment.
+4. Wait for Ready, then check the deployment's commit and generated URL. A preview deployment can be tested before choosing Promote to Production. Check the production domain serves the intended deployment.
+5. Refresh the phone browser after the new production deployment is ready. If the page remains old, compare the displayed deployment's source SHA before changing caches or build settings.
+
+Redeploy on an older deployment rebuilds that deployment's source; use Create Deployment to select the new commit. No automatic-deployment flag, Vercel setting, database variable, domain or remote-control gate was changed by the mobile UI verification. [Official Git-reference deployment instructions](https://vercel.com/docs/git#creating-a-deployment-from-a-git-reference), [deployment management](https://vercel.com/docs/deployments/managing-deployments).
+
 ## Environment setup after approval
 
 Use the platform's secure environment management, separately for Development, Preview and Production:

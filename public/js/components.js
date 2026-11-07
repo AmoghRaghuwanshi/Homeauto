@@ -7,6 +7,9 @@ export function el(tag, props = {}, ...children) {
     if (key === 'class') node.className = value;
     else if (key === 'text') node.textContent = value;
     else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2).toLowerCase(), event => {
+      // WebKit touch activation may leave focus on the page rather than the
+      // opener. Capture the actual button before its action opens a dialog.
+      if (event.type === 'click' && node.tagName === 'BUTTON') node.focus({ preventScroll: true });
       const failure = error => document.dispatchEvent(new CustomEvent('action-error', { detail: error }));
       try { const result = value(event); if (result?.then) { const pending = node.tagName === 'BUTTON' && !node.disabled; if (pending) { node.disabled = true; node.setAttribute('aria-busy', 'true'); } Promise.resolve(result).catch(failure).finally(() => { if (pending) { node.disabled = false; node.removeAttribute('aria-busy'); } }); } } catch (error) { failure(error); }
     });

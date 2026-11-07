@@ -94,3 +94,15 @@ actual relay/sensor validation remain separate blocked release work. Do not flas
 or actuate hardware based on the software results above.
 
 Final frame-by-frame navigation check caught an 8px transient horizontal overflow during the short forward transition. The workspace now clips only horizontal overflow; the 30-frame width assertion is part of the passing UX suite. Static layouts and focus rings remain inside their padded content area.
+
+## Mobile follow-up — 2026-11-07
+
+Source: server/scripts/mobile-check.js. Runtime: loopback, in-memory SQLite, fake publisher, native voice OFF. The existing3001 preview and household data are not used by the test fixtures.
+
+Coverage includes320×568,360×740,390×844,430×932,844×390 and667×375 touch viewports; all four themes and five roots;20 secondary routes at320/390; Hindi with large text/controls in every theme; a320px-high viewport for reduced keyboard space; modal Cancel/focus restoration; a read-only assistant query; landscape navigation/My home; and768/1440 tablet/desktop checks. Mobile navigation must remain reachable, input text at least16px, standalone targets at least44px, and essential controls must stay within the horizontal viewport.
+
+Initial failures are retained outside the source tree at D:/homeauto-audit-tools/mobile-20261107. Baseline confirmed the landscape sidebar clipping and15px form fields. The first Chromium run found the undersized About notices link. WebKit exposed touch opener focus loss; a controlled before/after comparison verified the correction. One Chromium assertion also raced the native dialog close event; the test now waits for dialog removal and restored focus instead of reading focus before close handling completes. No production timeout, authentication rule or hardware assertion was changed.
+
+The native browser chrome, software keyboard, safe-area hardware geometry, screen-reader gestures and physical device behavior are not simulated by these layout checks. Real-phone acceptance remains open. GitHub/Vercel publication and deployment are separate: automatic Git deployment remains disabled, and the operator's manual-update instructions are in ../cloud/VERCEL_DEPLOYMENT.md.
+
+Final local results: Chromium and WebKit each passed **182 layout checks,45 axe scans and43 screenshots**, with0 violations, page errors or external requests. Evidence: chromium-release/results.json and webkit-final/results.json under D:/homeauto-audit-tools/mobile-20261107. The93-file JavaScript syntax check and456-file cloud build trace also pass; no native hub/private artifacts enter the cloud trace. The workflow adds separate Chromium/WebKit mobile jobs to the existing backend/navigation/cloud and full-history secret checks. Exact published commit and actual Actions conclusion are provided in the completion message.
