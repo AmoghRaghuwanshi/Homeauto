@@ -1,8 +1,10 @@
 # HomeAuto development checkpoint
 
-## In progress: gateway-first onboarding and Demo home, 2026-11-08
+## Latest: gateway-first onboarding and Demo home, 2026-11-08
 
-User chose gateway setup first, with an explicit demo alongside. Additive migration004 has passed the isolated Neon branch; local backend168/168 and Chromium96-screen matrix pass. New owner setup creates a private telemetry-only connection file after password confirmation. Demo actions stay in the browser and never update real household devices. Full two-engine regressions, publication, compatible Vercel deployment, production004 rollout and live read-only/demo acceptance remain. See docs/cloud/GATEWAY_SETUP.md. All earlier work below is preserved.
+Completed and live at https://homeauto.amoghbuilds.tech. Runtime source582c6febf61770a9329056f7380e52cf3a52deb1, Vercel dpl_6qu8pFSf2SecCFQdfbzFWyFh9A7n Ready, exact deployed assets verified. GitHub run42507300334 passed all four jobs, including the new two-engine onboarding matrix. Backend168/168; local Chromium/WebKit96 screenshots each and8 focused screenshots each pass with zero axe violations or demo hardware writes. Production schema4 installed only after the compatible app was Ready, preserving migration1–3 checksums and15 forced-RLS tables. Runtime cannot select gateway keys; public enrollment denied. No production gateway or key was created (counts0/0).
+
+New owners see Connect gateway first and Demo home alongside. Settings → Home gateway provides password-confirmed private telemetry-file setup. Demo controls are isolated in the browser; live QA verified light control, refresh persistence, gas scenario, Shrimaan text control, mobile rendering and exit back to the unchanged real empty home. First QA logout hit a transient connection timeout; reload and an explicit retry succeeded, with native sign-in UI and independent Neon count0 active QA sessions. This limitation is retained, not described as a zero-error live run. No production device actions or firmware/MQTT changes occurred. Physical hub pairing, offline speech and real phone/hardware acceptance remain supervised installation tasks. See docs/cloud/GATEWAY_SETUP.md and docs/ux/TEST_RESULTS.md; raw evidence is at D:/homeauto-audit-tools/onboarding-20261108. All earlier work below is preserved.
 
 ## Latest: signup integration reliability repair, 2026-11-08
 
