@@ -25,6 +25,13 @@ test('self-service registration preserves private household and credential bound
   await t.test('duplicate case-folded username cannot replace credentials or leave an orphan home', async () => {
     const before = await count(); await assert.rejects(auth.register('NEW.OWNER', 'Replacement', password, 'registration-duplicate'), { code: 'USERNAME_TAKEN', status: 409 }); assert.deepEqual(await count(), before);
   });
+  await t.test('cloud registration and hashing accept ten characters and reject nine', async () => {
+    const password = 'a'.repeat(10);
+    await assert.rejects(auth.register('nine-character', 'Nine characters', 'b'.repeat(9), 'nine-character-policy'), { code: 'PASSWORD_LENGTH' });
+    assert.deepEqual(await auth.register('ten-character', 'Ten characters', password, 'ten-character-policy'), { created: true, username: 'ten-character' });
+    const login = await auth.login('ten-character', password, 'ten-character-login'); assert.equal(login.session.role, 'owner'); await auth.logout(login.token);
+    await assert.rejects(require('../auth/sessions').passwordHash(password), { code: 'PASSWORD_LENGTH' });
+  });
   await t.test('concurrent duplicate requests create exactly one account and home', async () => {
     const before = await count(); const result = await Promise.allSettled([auth.register('race-owner', 'Race one', password, 'race-one'), auth.register('race-owner', 'Race two', password, 'race-two')]);
     assert.equal(result.filter(r => r.status === 'fulfilled').length, 1); assert.equal(result.find(r => r.status === 'rejected').reason.code, 'USERNAME_TAKEN'); assert.deepEqual(await count(), { users: before.users + 1, homes: before.homes + 1 });

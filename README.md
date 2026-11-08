@@ -10,6 +10,10 @@ The cloud site is live at [HomeAuto](https://homeauto.amoghbuilds.tech).
 home; devices require gateway enrollment. Git-triggered deployment stays disabled;
 tested releases are deployed explicitly. Publishing source does not activate hardware.
 
+Cloud signup accepts passwords of10–256 characters. Existing account passwords do
+not change when the minimum length changes. Use the same registered username to
+sign in; a duplicate signup never replaces an existing account's credentials.
+
 A local Node/Express smart-home hub with four themes, Hindi/English interface,
 authenticated controls and CPU speech workers. The active app uses vanilla ES
 modules; no build step, CDN, cloud identity or cloud speech service is required.

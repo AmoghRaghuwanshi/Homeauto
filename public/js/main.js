@@ -183,6 +183,12 @@ function onUpdate() {
 function authLanguages() {
   return el('div', { class: 'login-lang', role: 'group', 'aria-label': t('Language') }, el('button', { type: 'button', class: 'button button-ghost', onclick: () => applyPreferences({ language: 'en' }), 'aria-pressed': String(preferences.language === 'en') }, 'English'), el('button', { type: 'button', class: 'button button-ghost', onclick: () => applyPreferences({ language: 'hi' }), 'aria-pressed': String(preferences.language === 'hi') }, 'हिन्दी'));
 }
+function accountError(error, signup = false) {
+  const code = ['CONNECTION_LOST', 'RESPONSE_UNAVAILABLE', 'CLOUD_UNAVAILABLE'].includes(error.code) ? (signup ? 'SIGNUP_NOT_CONFIRMED' : 'SIGNIN_UNAVAILABLE')
+    : error.code === 'VALIDATION_ERROR' ? (signup ? 'ACCOUNT_DETAILS_INVALID' : 'INVALID_LOGIN')
+    : ['INVALID_JSON', 'JSON_REQUIRED'].includes(error.code) ? 'ACCOUNT_FORM_UNREADABLE' : error.code;
+  return { code, status: error.status };
+}
 function authLayout(form, signup = false) {
   const cloud = Api.mode === 'cloud';
   document.title = t(signup ? 'Create account' : 'Sign in') + ' · HomeAuto';
@@ -195,10 +201,10 @@ function renderSignup(draft = signupRequest?.draft || {}) {
   const username = field('Username', { name: 'signup-username', value: draft['signup-username'] || '', autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', minlength: 3, maxLength: 32, pattern: '[A-Za-z0-9][A-Za-z0-9._\\-]{2,31}', title: t('Start with a letter or number.'), 'aria-describedby': 'signup-username-help' });
   username.node.append(el('span', { id: 'signup-username-help', class: 'small muted' }, t('Use 3–32 letters, numbers, dots, dashes or underscores.'), ' ', t('Start with a letter or number.')));
   username.node.firstElementChild.id = 'signup-username-label'; username.input.setAttribute('aria-labelledby', 'signup-username-label');
-  const password = field('Password', { name: 'signup-password', value: draft['signup-password'] || '', type: 'password', autocomplete: 'new-password', minlength: 12, maxLength: 256, 'aria-describedby': 'signup-password-help' });
-  password.node.append(el('span', { id: 'signup-password-help', class: 'small muted' }, t('Use at least 12 characters.')));
+  const password = field('Password', { name: 'signup-password', value: draft['signup-password'] || '', type: 'password', autocomplete: 'new-password', minlength: 10, maxLength: 256, 'aria-describedby': 'signup-password-help' });
+  password.node.append(el('span', { id: 'signup-password-help', class: 'small muted' }, t('Use at least 10 characters.')));
   password.node.firstElementChild.id = 'signup-password-label'; password.input.setAttribute('aria-labelledby', 'signup-password-label');
-  const confirmation = field('Confirm password', { name: 'signup-confirm', value: draft['signup-confirm'] || '', type: 'password', autocomplete: 'new-password', minlength: 12, maxLength: 256 });
+  const confirmation = field('Confirm password', { name: 'signup-confirm', value: draft['signup-confirm'] || '', type: 'password', autocomplete: 'new-password', minlength: 10, maxLength: 256 });
   const error = el('p', { class: 'form-error', role: 'alert', hidden: !signupFailure, tabindex: '-1' }, signupFailure && errorText(signupFailure));
   const submit = el('button', { type: 'submit', class: 'button button-primary button-full' }, t('Create account'));
   const pending = el('p', { class: 'small muted', role: 'status', hidden: !signupRequest }, t('Creating your account…'));
@@ -220,7 +226,7 @@ function renderSignup(draft = signupRequest?.draft || {}) {
     display.input.value = display.input.value.normalize('NFC').trim(); username.input.value = username.input.value.trim().toLowerCase();
     const invalid = !display.input.value || display.input.value.length > 80 || /[\u0000-\u001f\u007f]/u.test(display.input.value) ? [display.input, { code: 'INVALID_DISPLAY_NAME' }]
       : !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username.input.value) ? [username.input, { code: 'INVALID_USERNAME' }]
-      : password.input.value.length < 12 || password.input.value.length > 256 ? [password.input, { code: 'PASSWORD_LENGTH' }]
+      : password.input.value.length < 10 || password.input.value.length > 256 ? [password.input, { code: 'PASSWORD_LENGTH' }]
       : password.input.value !== confirmation.input.value ? [confirmation.input, { code: 'PASSWORD_MISMATCH' }] : null;
     if (invalid) { invalid[0].setAttribute('aria-invalid', 'true'); error.textContent = errorText(invalid[1]); error.hidden = false; invalid[0].focus(); return; }
     const request = signupRequest = { draft: values() }; authNotice = false; updatePending();
@@ -230,7 +236,7 @@ function renderSignup(draft = signupRequest?.draft || {}) {
       if (!state.session) { authUsername = result.username; authNotice = true; if (location.pathname === '/signup') navigation.go('/login', { replace: true, direction: 'back' }); }
     } catch (e) {
       if (!state.session) authUsername = request.draft['signup-username'];
-      if (!state.session && location.pathname === '/signup') signupFailure = ['CONNECTION_LOST', 'RESPONSE_UNAVAILABLE', 'CLOUD_UNAVAILABLE'].includes(e.code) ? { code: 'SIGNUP_NOT_CONFIRMED' } : e;
+      if (!state.session && location.pathname === '/signup') signupFailure = accountError(e, true);
     } finally {
       if (signupRequest === request) signupRequest = null;
       request.draft = null;
@@ -248,7 +254,7 @@ function renderLogin(draft = {}) {
   const form = el('form', { class: 'login-form' }, authLanguages(), el('div', {}, el('h2', {}, t('Sign in to your home')), el('p', { class: 'muted' }, t(Api.mode === 'cloud' ? 'Use your username and password.' : 'Private controls, right here.'))), authNotice && el('p', { class: 'status status-success', role: 'status' }, t('Account created. Sign in to continue.')), username.node, password.node,
     button('Show password', event => { password.input.type = password.input.type === 'password' ? 'text' : 'password'; event.currentTarget.querySelector('span').textContent = t(password.input.type === 'password' ? 'Show password' : 'Hide password'); }, { kind: 'ghost' }), error, submit,
     Api.mode === 'cloud' ? el('div', { class: 'auth-footer' }, el('p', { class: 'small muted' }, t('New to HomeAuto?')), link('Create account', '/signup', 'button button-secondary button-full')) : el('p', { class: 'small muted' }, t('Set up an owner on the home hub first.')));
-  form.addEventListener('submit', async event => { event.preventDefault(); if (submit.disabled) return; submit.disabled = true; error.hidden = true; try { const session = await Api.request('/api/auth/login', { method: 'POST', body: { username: username.input.value.trim(), password: password.input.value } }); if (generation !== renderId) { await bootstrap(); return; } authNotice = false; authUsername = ''; state.session = session; await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(true); } catch (e) { if (generation === renderId) { error.textContent = errorText(Api.mode === 'cloud' && ['CONNECTION_LOST', 'RESPONSE_UNAVAILABLE', 'CLOUD_UNAVAILABLE'].includes(e.code) ? { code: 'SIGNIN_UNAVAILABLE' } : e); error.hidden = false; } } finally { submit.disabled = false; } });
+  form.addEventListener('submit', async event => { event.preventDefault(); if (submit.disabled) return; submit.disabled = true; error.hidden = true; try { const session = await Api.request('/api/auth/login', { method: 'POST', body: { username: username.input.value.trim(), password: password.input.value } }); if (generation !== renderId) { await bootstrap(); return; } authNotice = false; authUsername = ''; state.session = session; await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(true); } catch (e) { if (generation === renderId) { error.textContent = errorText(Api.mode === 'cloud' ? accountError(e) : e); error.hidden = false; } } finally { submit.disabled = false; } });
   authLayout(form);
 }
 function resetSession() { Api.sessionVersion++; ctx.pending.clear(); ctx.feedback.clear(); ctx.preferenceBusy = false; ctx.activityPage = null; ctx.assistantGeneration = (ctx.assistantGeneration || 0) + 1; ctx.voice.cancel(); ctx.stopAudio(); disconnectState(); Api.csrf = null; ctx.conversation = { transcript: '', response: '', draft: '' }; knownAlerts = new Set(); initialAlerts = false; document.querySelectorAll('dialog').forEach(d => d.close()); renderLogin(); }

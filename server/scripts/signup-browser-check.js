@@ -61,7 +61,7 @@ async function main() {
     });
     assert.ok(historyWrites <= 2, 'Focus/scroll bursts must coalesce history writes');
     result.checks.push('Rapid focus and scroll changes preserve navigation without exhausting Safari history writes');
-    const password = 'a long synthetic browser password';
+    const password = 'a'.repeat(10);
     await page.getByLabel('Your name', { exact: true }).fill('New test owner'); await page.getByLabel('Username', { exact: true }).fill('new-browser-owner'); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByLabel('Confirm password', { exact: true }).fill(password + ' mismatch');
     await page.getByRole('button', { name: 'Create account', exact: true }).click(); await page.getByText('Passwords do not match.', { exact: true }).waitFor(); assert.equal(submissions, 0);
     await page.getByRole('button', { name: 'Show passwords', exact: true }).click(); assert.equal(await page.getByLabel('Password', { exact: true }).getAttribute('type'), 'text'); assert.equal(await page.getByLabel('Confirm password', { exact: true }).getAttribute('type'), 'text'); await page.getByRole('button', { name: 'Hide passwords', exact: true }).click();
@@ -90,7 +90,7 @@ async function main() {
     await fillSignup('bad name'); await page.getByRole('button', { name: 'Create account', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: 'Start with a letter or number.' }).waitFor(); assert.equal(submissions, prior);
     await fillSignup('valid-name', 'short'); await page.getByRole('button', { name: 'Create account', exact: true }).click();
-    await page.getByText('Use a password with 12–256 characters.', { exact: true }).waitFor(); assert.equal(submissions, prior);
+    await page.getByText('Use a password with 10–256 characters.', { exact: true }).waitFor(); assert.equal(submissions, prior);
     assert.equal(await page.getByLabel('Password', { exact: true }).getAttribute('aria-invalid'), 'true');
     result.checks.push('Invalid usernames and short passwords produce inline errors without submitting');
 
@@ -128,6 +128,9 @@ async function main() {
       await page.unroute('**/api/auth/signup');
     }
     result.checks.push('Upstream HTML errors and malformed success payloads never claim account creation');
+    await page.route('**/api/auth/signup', route => route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { code: 'VALIDATION_ERROR' } }) }));
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await page.getByText('Check your name, username and password, then try again.', { exact: true }).waitFor(); await page.unroute('**/api/auth/signup');
     assert.deepEqual(result.errors, []); assert.deepEqual(result.external_requests, []);
   } catch (error) { result.failure = error.stack || error.message; if (page) { result.route = page.url(); await page.screenshot({ path: path.join(folder,'failure.png'), fullPage: true }).catch(() => {}); } throw error; }
   finally { fs.writeFileSync(path.join(folder,'results.json'),JSON.stringify(result,null,2)); await browser?.close(); await fixture.stop(); console.log(JSON.stringify({ engine, checks: result.checks.length, screenshots: result.screenshots.length, axe_scans: result.axe_scans, violations: result.violations.length, errors: result.errors, failure: !!result.failure, folder })); }

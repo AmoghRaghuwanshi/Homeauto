@@ -1,12 +1,13 @@
 const crypto = require("crypto");
 const {
-  passwordHash,
+  passwordHash: hashPassword,
   verifyPassword,
   secureEqual,
   hash,
 } = require("../auth/sessions");
 const { text } = require("../lib/errors");
 const { fail, scoped } = require("./db");
+const passwordHash = password => hashPassword(password, { minimumLength: 10 });
 const fn = async (pool, name, args = []) => {
   const { rows } = await pool.query(
     `SELECT homeauto_online.${name}(${args.map((_, i) => "$" + (i + 1)).join(",")}) AS value`,
@@ -73,7 +74,7 @@ function createCloudAuth(pool, { secure = true } = {}) {
         fail('INVALID_USERNAME', 400);
       username = username.trim().toLowerCase();
       try { displayName = text(displayName, 80); } catch { fail('INVALID_DISPLAY_NAME', 400); }
-      if (typeof password !== 'string' || password.length < 12 || password.length > 256)
+      if (typeof password !== 'string' || password.length < 10 || password.length > 256)
         fail('PASSWORD_LENGTH', 400);
       try {
         await rate('signup-ip:' + ip, 5, 3600);

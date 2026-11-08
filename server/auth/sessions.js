@@ -4,8 +4,9 @@ const { fail, text } = require('../lib/errors');
 const scrypt = promisify(crypto.scrypt);
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const secureEqual = (a, b) => { if(typeof a!=='string'||typeof b!=='string')return false; const left=Buffer.from(a),right=Buffer.from(b);return left.length===right.length&&crypto.timingSafeEqual(left,right); };
-async function passwordHash(password) {
-  if (typeof password !== 'string' || password.length < 12 || password.length > 256) fail('PASSWORD_LENGTH');
+async function passwordHash(password, { minimumLength = 12 } = {}) {
+  if (!Number.isInteger(minimumLength) || minimumLength < 10 || minimumLength > 256) throw new Error('Invalid password policy');
+  if (typeof password !== 'string' || password.length < minimumLength || password.length > 256) fail('PASSWORD_LENGTH');
   const salt = crypto.randomBytes(16).toString('hex');
   const key = await scrypt(password, salt, 64, { N: 32768, r: 8, p: 1, maxmem: 128 * 1024 * 1024 });
   return `scrypt:32768:8:1:${salt}:${key.toString('hex')}`;
