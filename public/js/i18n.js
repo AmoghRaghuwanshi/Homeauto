@@ -1,6 +1,7 @@
 import { preferences } from './preferences.js';
 const hi = {
   'Create account': 'खाता बनाएँ', 'Create your account': 'अपना खाता बनाएँ', 'Your details': 'आपकी जानकारी', 'Your name': 'आपका नाम',
+  'Creating your account…': 'आपका खाता बन रहा है…',
   'New accounts get a separate home. Devices connect through your home gateway.': 'नए खाते के लिए अलग घर बनता है। उपकरण आपके होम गेटवे से जुड़ते हैं।',
   'Create an account for your own home. Existing homes stay private.': 'अपने घर के लिए खाता बनाएँ। दूसरे घरों की जानकारी निजी रहती है।',
   'Use 3–32 letters, numbers, dots, dashes or underscores.': '3–32 अंग्रेज़ी अक्षर, अंक, डॉट, डैश या अंडरस्कोर इस्तेमाल करें।',
@@ -74,6 +75,11 @@ Object.assign(hi, {
 });
 export const t = value => preferences.language === 'hi' ? hi[value] || value : value;
 const errors = {
+  INVALID_DISPLAY_NAME: ['Enter your name using 1–80 characters.', 'अपना नाम 1–80 अक्षरों में लिखें।'],
+  PASSWORD_MISMATCH: ['Passwords do not match.', 'दोनों पासवर्ड एक जैसे नहीं हैं।'],
+  SIGNUP_NOT_CONFIRMED: ["Couldn't confirm account creation. Try signing in with these details before creating another account.", 'खाता बनने की पुष्टि नहीं हो सकी। दूसरा खाता बनाने से पहले इसी जानकारी से साइन इन करके देखें।'],
+  SIGNIN_UNAVAILABLE: ["Couldn't reach the account service. Check your connection and try signing in again.", 'खाता सेवा से संपर्क नहीं हुआ। अपना कनेक्शन जाँचें और फिर साइन इन करें।'],
+  RESPONSE_UNAVAILABLE: ["Couldn't confirm the response from HomeAuto. Check the current status before trying again.", 'HomeAuto के जवाब की पुष्टि नहीं हुई। फिर कोशिश करने से पहले ताज़ा स्थिति जाँचें।'],
   INVALID_USERNAME: ['Use 3–32 letters, numbers, dots, dashes or underscores. Start with a letter or number.', '3–32 अंग्रेज़ी अक्षर, अंक, डॉट, डैश या अंडरस्कोर रखें। शुरुआत अक्षर या अंक से करें।'],
   USERNAME_TAKEN: ['That username is taken. Choose another one.', 'यह उपयोगकर्ता नाम पहले से इस्तेमाल हो रहा है। दूसरा चुनें।'],
   PASSWORD_LENGTH: ['Use a password with 12–256 characters.', 'पासवर्ड में 12–256 अक्षर रखें।'],

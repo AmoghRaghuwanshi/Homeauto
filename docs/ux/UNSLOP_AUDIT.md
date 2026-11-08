@@ -1,5 +1,9 @@
 # Unslop content audit
 
+## Signup failure handling — 2026-11-08
+
+Contextual audit confirmed that “The hub didn't respond. Check the device's status before trying again.” was misleading on the cloud account form. That message remains protected for device operations; auth screens now use account-specific recovery. After a lost or malformed signup response, “Couldn't confirm account creation. Try signing in with these details before creating another account.” preserves uncertainty because PostgreSQL may already have committed. Pending text and inline validation state the actual action/constraint. No failed-response path claims that the account was created or that a device action failed. Hindi was reviewed manually; native-speaker acceptance remains open. This is a targeted contextual correction, not a new automated prose-scanner score.
+
 ## Signup continuation —2026-11-07
 
 Continued the installed2.3.0 audit-first/core-contract process for the new cloud registration flow. The prior cloud sign-in instruction “Set up an owner on the home hub first.” contradicted public cloud signup; it is now shown only for local hub setup. Cloud sign-in links to “Create account”. The signup explanation states the operational boundary: “New accounts get a separate home. Devices connect through your home gateway.” This avoids implying automatic access to an existing household.

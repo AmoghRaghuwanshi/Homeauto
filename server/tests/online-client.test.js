@@ -184,6 +184,31 @@ test("late authentication failures cannot log out a newly rotated browser sessio
   }
 });
 
+test('API transport preserves upstream errors and never retries an uncertain signup', async () => {
+  const original = global.fetch; const { Api } = await loadClient('api.js'); let calls = 0;
+  try {
+    global.fetch = async () => { calls++; return new Response('<html>Upstream unavailable</html>', { status: 503, headers: { 'x-request-id': 'synthetic-trace' } }); };
+    await assert.rejects(Api.request('/api/auth/signup', { method: 'POST', body: {} }), { code: 'RESPONSE_UNAVAILABLE', status: 503, request_id: 'synthetic-trace', retryable: true }); assert.equal(calls, 1);
+    global.fetch = async () => new Response('null', { status: 201 });
+    await assert.rejects(Api.request('/api/auth/signup', { method: 'POST', body: {} }), { code: 'RESPONSE_UNAVAILABLE', status: 201 });
+    global.fetch = async () => { throw new DOMException('Aborted', 'AbortError'); };
+    await assert.rejects(Api.request('/api/auth/signup', { method: 'POST', body: {} }), { code: 'CONNECTION_LOST' });
+  } finally { global.fetch = original; }
+});
+
+test('API caller cancellation and the request deadline both cancel the actual fetch', async () => {
+  const original = global.fetch; const { Api } = await loadClient('api.js');
+  try {
+    let usedSignal;
+    global.fetch = (path, { signal }) => { usedSignal = signal; return new Promise((resolve, reject) => { const abort = () => reject(new DOMException('Aborted', 'AbortError')); if (signal.aborted) abort(); else signal.addEventListener('abort', abort, { once: true }); }); };
+    const caller = new AbortController(); const pending = Api.request('/api/auth/session', { signal: caller.signal }); caller.abort();
+    await assert.rejects(pending, { code: 'CONNECTION_LOST' }); assert.equal(usedSignal.aborted, true);
+    const second = new AbortController();
+    await assert.rejects(Api.request('/api/auth/session', { signal: second.signal, timeoutMs: 1000 }), { code: 'CONNECTION_LOST' });
+    assert.equal(usedSignal.aborted, true); assert.equal(second.signal.aborted, false);
+  } finally { global.fetch = original; }
+});
+
 test("Vercel route restoration preserves filters and rejects malformed internal paths", () => {
   const req = {
     url: "/api/index?__route=security/activity&limit=30&category=lights",

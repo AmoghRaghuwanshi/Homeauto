@@ -30,6 +30,7 @@ function createOnlineApp({ pool, config, logger = console }) {
         typeof req.route?.path === "string" ? req.route.path : "unmatched";
       if (
         res.statusCode >= 400 ||
+        path === '/api/auth/signup' ||
         path.endsWith("/command") ||
         path.endsWith("/redeem")
       )

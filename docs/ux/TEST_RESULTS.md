@@ -1,5 +1,11 @@
 # UI refinement verification
 
+## Signup integration failure regression — 2026-11-08
+
+Live baseline: real signup201, login200, snapshot200 and logout200 confirmed the existing Neon connection. Isolated before-fix evidence reproduced whitespace blocked with zero submissions/no inline error, a device-related network error on an auth form, and a committed201 discarded after language switching while the newly rendered form re-enabled submission. Evidence: D:/homeauto-audit-tools/signup-repair-20261108/{baseline.json,edge-baseline.json}.
+
+The repair passes164 full backend tests and22 focused tests, including sanitized signup logging, validation, non-JSON/malformed responses, DOM aborts and deadlines with caller cancellation. Both focused browser engines passed9 groups with zero page errors/violations: validation without API submission, trimmed/case-folded usernames, language changes after actual PostgreSQL commit, duplicate-submit blocking, lost-response sign-in recovery and malformed success rejection. The expanded full CI matrix also captures pending Hindi state. Publication, exact release and real-domain rerun outcomes are recorded in [production acceptance](../cloud/PRODUCTION_ACCEPTANCE.md). Device/firmware behavior and security gates are unchanged.
+
 ## Live signup and Safari navigation continuation — 2026-11-07
 
 Release96d2429 passed all four [CI jobs](https://github.com/AmoghRaghuwanshi/Homeauto/actions/runs/42359856117): backend/build/syntax/UX/remediation/cloud, secrets and separate mobile/signup matrices in Chromium and WebKit. The signup suite covers32 auth layouts plus a Hindi accessibility capture per engine, all four themes, confirmation, visibility, duplicate errors, real synthetic account isolation and logout. Existing mobile coverage remains182 layouts/45 axe scans/43 screenshots per engine. All tests use disposable data and simulated hardware.

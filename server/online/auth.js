@@ -72,7 +72,7 @@ function createCloudAuth(pool, { secure = true } = {}) {
       if (typeof username !== 'string' || !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username.trim().toLowerCase()))
         fail('INVALID_USERNAME', 400);
       username = username.trim().toLowerCase();
-      displayName = text(displayName, 80);
+      try { displayName = text(displayName, 80); } catch { fail('INVALID_DISPLAY_NAME', 400); }
       if (typeof password !== 'string' || password.length < 12 || password.length > 256)
         fail('PASSWORD_LENGTH', 400);
       try {

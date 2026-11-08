@@ -2,6 +2,16 @@
 
 Target: https://homeauto.amoghbuilds.tech, existing Homeauto Vercel project and its existing Neon production branch. This continues the published application; no firmware, MQTT vocabulary, physical controller behavior or local household database changed.
 
+## Signup integration repair — 2026-11-08
+
+The user reported that live signup was unreliable. The existing live API returned runtime/health200 and anonymous session401; native Neon checks confirmed schema3, registration privileges and the existing accounts. A fresh controlled production account completed signup201, login200, snapshot200 and logout200. This confirmed connectivity, but did not disprove failures in other browser states.
+
+Isolated reproduction identified three defects: surrounding spaces blocked HTML form submission without an inline error; network errors used unrelated physical-device recovery text; and changing language while signup was pending discarded a successful201 after the database committed, leaving an enabled signup form. That last case was a real frontend/backend reconciliation failure, not a missing table or environment variable.
+
+The request now retains pending state across language rerenders, prevents a second submission and accepts the confirmed result for the active signup screen. Inputs stay read-only while pending, with a localized status. Username normalization and accessible inline validation match server rules. Password fields stay in memory while the form is open; the separate request snapshot is discarded on settlement. Lost or malformed responses advise signing in with the same details; the browser does not retry account-creation POSTs. A success notice requires created=true and the expected normalized username. Signup has a bounded25-second response budget; other requests retain their10-second default. Both caller cancellation and the deadline now reach the actual fetch. Non-JSON upstream errors retain their status/request trace instead of becoming a misleading device message. Successful signup requests emit sanitized route/status/duration/request-ID logs, without names, passwords or payloads.
+
+No schema migration, Neon identity replacement, credential reset, MQTT/firmware change or live hardware action is required. Existing users/homes remain. Local verification:164 backend tests,22 focused backend/transport tests, and signup integration regressions in both browser engines passed. Evidence is at D:/homeauto-audit-tools/signup-repair-20261108. Exact release CI/deployment and post-release verification are recorded after rollout.
+
 ## Initial connection repair
 
 The first live check returned CLOUD_CONFIGURATION_REQUIRED because DATABASE_URL was absent. After the user's Marketplace connection, the API reached Neon but correctly rejected neondb_owner with UNSAFE_DATABASE_ROLE. Both the production and development HomeAuto schemas were initially absent.

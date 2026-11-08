@@ -31,6 +31,7 @@ test('self-service registration preserves private household and credential bound
   });
   await t.test('invalid username and password inputs are rejected without database rows', async () => {
     const before = await count(); for (const name of ['ab', 'a name', '<script>', 'a'.repeat(33)]) await assert.rejects(auth.register(name, 'Test', password, 'invalid-name'), { code: 'INVALID_USERNAME' });
+    for (const display of ['', '   ', 'x'.repeat(81), 'a\u0000b']) await assert.rejects(auth.register('valid-name', display, password, 'invalid-display'), { code: 'INVALID_DISPLAY_NAME' });
     for (const value of ['short', 'x'.repeat(257), null]) await assert.rejects(auth.register('valid-name', 'Test', value, 'invalid-password'), { code: 'PASSWORD_LENGTH' }); assert.deepEqual(await count(), before);
   });
   await t.test('registration is bounded per IP before further password hashing', async () => {
@@ -58,7 +59,8 @@ test('self-service registration preserves private household and credential bound
 test('public signup HTTP validates origin, shape and account creation without issuing a session', async t => {
   const f = await onlineFixture(); t.after(() => f.close());
   const config = { origins: new Set(), secure: false, allowCommands: false };
-  const server = http.createServer(createOnlineApp({ pool: f.pool, config, logger: { info() {} } }));
+  const logs = [];
+  const server = http.createServer(createOnlineApp({ pool: f.pool, config, logger: { info(value) { logs.push(JSON.parse(value)); } } }));
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); const origin = 'http://127.0.0.1:' + server.address().port; config.origins.add(origin);
   t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
   const valid = { username: 'http-owner', display_name: 'HTTP test owner', password: 'a long synthetic HTTP password' };
@@ -69,6 +71,8 @@ test('public signup HTTP validates origin, shape and account creation without is
   });
   await t.test('successful signup is201 with no credential or session leakage; sign-in works separately', async () => {
     const r = await post(valid); assert.equal(r.status, 201); assert.equal(r.headers.get('set-cookie'), null); assert.deepEqual(await r.json(), { created: true, username: valid.username });
+    assert.ok(logs.some(row => row.route === '/api/auth/signup' && row.status === 201 && row.request_id && Number.isInteger(row.duration_ms)));
+    assert.equal(JSON.stringify(logs).includes(valid.password), false); assert.equal(JSON.stringify(logs).includes(valid.username), false);
     assert.equal((await fetch(origin + '/api/snapshot')).status, 401);
     const login = await fetch(origin + '/api/auth/login', { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ username: valid.username, password: valid.password }) }); assert.equal(login.status, 200); assert.equal((await login.json()).user.role, 'owner');
   });

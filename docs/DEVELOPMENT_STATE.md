@@ -1,5 +1,11 @@
 # HomeAuto development checkpoint
 
+## Latest: signup integration reliability repair, 2026-11-08
+
+User reports live signup failure. Live runtime/health200 and session401, schema3 and privileges verified; one labeled production QA account completed real signup201/login200/snapshot200/logout200. Isolated tests then reproduced a real reconciliation bug: language switching during a pending signup discarded201 after PostgreSQL committed and re-enabled submission. Also reproduced silently blocked whitespace usernames and incorrect device-related network recovery copy.
+
+Working repair retains pending signup across rerenders, blocks duplicates, normalizes/validates input with accessible errors, checks the success contract and offers sign-in recovery after an uncertain response without automatically retrying writes. Secrets remain memory-only; auth transport deadlines/cancellation/HTML errors are handled and success logging is sanitized.164 full backend tests and22 focused tests pass; both focused engine integrations pass. Publish gates, full CI, Vercel rollout and final live verification are next. See docs/cloud/PRODUCTION_ACCEPTANCE.md and D:/homeauto-audit-tools/signup-repair-20261108. No database/firmware/hardware migration is needed; preserve existing accounts and all prior checkpoints below.
+
 ## Latest: production connection repair and public signup,2026-11-07
 
 The user authorized production test/deploy iteration, connected Vercel and Neon, then requested a real signup page. Existing project homeauto serves homeauto.amoghbuilds.tech. The Marketplace URL used neondb_owner; the guard rejected it. Production was verified empty, snapshotted, and initialized from unchanged001/002 after native checks on an isolated acceptance branch. Restricted pooled/direct runtime URLs, exact APP_BASE_URL, Node22 and disabled remote gates are configured. Deployment source0536222 is healthy200; unauthenticated session401. Real owner login/19 Chromium captures pass; no simulated device reports were added. Generated owner credentials are retained privately outside the checkout, never in source.

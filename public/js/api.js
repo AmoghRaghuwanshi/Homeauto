@@ -10,16 +10,20 @@ export const Api = {
     this.runtime = runtime;
   },
   csrf: null,
-  async request(path, { method = 'GET', body, signal } = {}) {
+  async request(path, { method = 'GET', body, signal, timeoutMs = 10000 } = {}) {
     if (!path.startsWith('/api/')) throw new Error('Same-origin API path required');
-    const sessionVersion = this.sessionVersion; const started = performance.now(); const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10000);
+    const sessionVersion = this.sessionVersion; const started = performance.now(); const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? Math.max(1000, Math.min(25000, timeoutMs)) : 10000);
+    const cancel = () => controller.abort();
+    if (signal?.aborted) cancel(); else signal?.addEventListener('abort', cancel, { once: true });
     try {
-      const response = await fetch(path, { method, credentials: 'same-origin', signal: signal || controller.signal, cache: 'no-store', headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(method !== 'GET' && this.csrf ? { 'X-CSRF-Token': this.csrf } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
-      const result = await response.json();
+      const response = await fetch(path, { method, credentials: 'same-origin', signal: controller.signal, cache: 'no-store', headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(method !== 'GET' && this.csrf ? { 'X-CSRF-Token': this.csrf } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+      let result;
+      try { result = await response.json(); if (!result || typeof result !== 'object') throw new Error('JSON response required'); }
+      catch { throw Object.assign(new Error('HomeAuto did not return a valid response'), { code: 'RESPONSE_UNAVAILABLE', status: response.status, request_id: response.headers.get('x-request-id'), retryable: response.status >= 500 }); }
       if (result.server_time && Array.isArray(result.devices)) result.client_rtt_ms = Math.min(10000, Math.max(0, performance.now() - started));
       if (!response.ok) { const error = new Error(result.error?.message || 'Request failed'); Object.assign(error, result.error, { status: response.status }); if (response.status === 401 && sessionVersion === this.sessionVersion) window.dispatchEvent(new CustomEvent('session-expired')); throw error; }
       if (result.csrf_token && sessionVersion === this.sessionVersion) { if (result.csrf_token !== this.csrf) this.sessionVersion++; this.csrf = result.csrf_token; }
       return result;
-    } catch (error) { if (!error.code) error.code = 'CONNECTION_LOST'; throw error; } finally { clearTimeout(timeout); }
+    } catch (error) { if (typeof error.code !== 'string') throw Object.assign(new Error('Connection unavailable'), { code: 'CONNECTION_LOST', cause: error }); throw error; } finally { clearTimeout(timeout); signal?.removeEventListener('abort', cancel); }
   },
 };

@@ -75,6 +75,59 @@ async function main() {
     result.checks.push('Duplicate feedback, real signup, separate sign-in and empty isolated home succeed');
     await page.goto(fixture.url + '/signup'); await page.waitForURL(fixture.url + '/'); await page.goto(fixture.url + '/settings'); await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor(); assert.equal((await page.request.get(fixture.url + '/api/auth/session')).status(), 401);
     result.checks.push('Signed-in users redirect from signup; Sign out revokes the session');
+    await signup();
+    const fillSignup = async (username, secret = password) => {
+      await page.getByLabel('Your name', { exact: true }).fill('Integration test owner'); await page.getByLabel('Username', { exact: true }).fill(username);
+      await page.getByLabel('Password', { exact: true }).fill(secret); await page.getByLabel('Confirm password', { exact: true }).fill(secret);
+    };
+    const signinAndLogout = async username => {
+      assert.equal(await page.getByLabel('Username', { exact: true }).inputValue(), username);
+      await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await page.getByRole('heading', { name: 'Connect your home gateway', exact: true }).waitFor();
+      await page.goto(fixture.url + '/settings'); await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor();
+    };
+    const prior = submissions;
+    await fillSignup('bad name'); await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: 'Start with a letter or number.' }).waitFor(); assert.equal(submissions, prior);
+    await fillSignup('valid-name', 'short'); await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await page.getByText('Use a password with 12–256 characters.', { exact: true }).waitFor(); assert.equal(submissions, prior);
+    assert.equal(await page.getByLabel('Password', { exact: true }).getAttribute('aria-invalid'), 'true');
+    result.checks.push('Invalid usernames and short passwords produce inline errors without submitting');
+
+    const delayedName = 'delayed-' + crypto.randomBytes(5).toString('hex'); await fillSignup('  ' + delayedName.toUpperCase() + '  ');
+    let release; let committed; let commitTimer;
+    const gate = new Promise(resolve => { release = resolve; });
+    const didCommit = new Promise((resolve, reject) => { committed = () => { clearTimeout(commitTimer); resolve(); }; commitTimer = setTimeout(() => reject(new Error('Signup did not reach PostgreSQL')), 15000); });
+    await page.route('**/api/auth/signup', async route => { const response = await route.fetch(); assert.equal(response.status(), 201); committed(); await gate; await route.fulfill({ response }); });
+    try {
+      await page.getByRole('button', { name: 'Create account', exact: true }).click(); await didCommit;
+      await page.getByRole('button', { name: 'हिन्दी', exact: true }).click(); assert.equal(await page.locator('button[type=submit]').isDisabled(), true);
+      assert.equal(await page.locator('form input').evaluateAll(inputs => inputs.every(input => input.readOnly)), true);
+      await inspect('hindi-pending-signup');
+      await page.evaluate(() => document.querySelector('form').requestSubmit()); assert.equal(submissions, prior + 1);
+      release(); await page.waitForURL(fixture.url + '/login');
+    } finally { clearTimeout(commitTimer); release(); await page.unroute('**/api/auth/signup'); }
+    await page.getByRole('button', { name: 'English', exact: true }).click(); await page.getByText('Account created. Sign in to continue.', { exact: true }).waitFor();
+    await signinAndLogout(delayedName);
+    result.checks.push('Whitespace/case normalization matches the API; a committed signup survives language rerender and prevents duplicate submissions');
+
+    await signup(); const uncertainName = 'uncertain-' + crypto.randomBytes(5).toString('hex'); await fillSignup(uncertainName);
+    await page.route('**/api/auth/signup', async route => { const response = await route.fetch(); assert.equal(response.status(), 201); await route.abort('failed'); });
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
+    await page.getByText("Couldn't confirm account creation. Try signing in with these details before creating another account.", { exact: true }).waitFor();
+    await page.unroute('**/api/auth/signup'); assert.equal(submissions, prior + 2);
+    assert.equal(await page.evaluate(password => Object.values(localStorage).some(value => value.includes(password)), password), false);
+    await page.getByRole('link', { name: 'Sign in', exact: true }).click(); await signinAndLogout(uncertainName);
+    result.checks.push('A lost response after PostgreSQL commit shows honest recovery; sign-in succeeds without retrying signup');
+
+    await signup(); await fillSignup('upstream-test');
+    for (const response of [{ status: 503, contentType: 'text/html', body: '<html>Unavailable</html>' }, { status: 200, contentType: 'application/json', body: '{}' }]) {
+      await page.route('**/api/auth/signup', route => route.fulfill(response)); await page.getByRole('button', { name: 'Create account', exact: true }).click();
+      await page.getByText("Couldn't confirm account creation. Try signing in with these details before creating another account.", { exact: true }).waitFor();
+      assert.equal(new URL(page.url()).pathname, '/signup'); assert.equal(await page.getByRole('button', { name: 'Create account', exact: true }).isEnabled(), true);
+      await page.unroute('**/api/auth/signup');
+    }
+    result.checks.push('Upstream HTML errors and malformed success payloads never claim account creation');
     assert.deepEqual(result.errors, []); assert.deepEqual(result.external_requests, []);
   } catch (error) { result.failure = error.stack || error.message; if (page) { result.route = page.url(); await page.screenshot({ path: path.join(folder,'failure.png'), fullPage: true }).catch(() => {}); } throw error; }
   finally { fs.writeFileSync(path.join(folder,'results.json'),JSON.stringify(result,null,2)); await browser?.close(); await fixture.stop(); console.log(JSON.stringify({ engine, checks: result.checks.length, screenshots: result.screenshots.length, axe_scans: result.axe_scans, violations: result.violations.length, errors: result.errors, failure: !!result.failure, folder })); }
