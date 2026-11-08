@@ -49,8 +49,8 @@ test("forward migration preserves version1 data and moves bounded cleanup off th
       "INSERT INTO homeauto_online.rate_limits(bucket,count,window_until) VALUES('expired',2,now()-interval '2 days')",
     );
     const result = await migrateOnline(pool);
-    assert.deepEqual(result.applied_versions, [2, 3]);
-    assert.equal(result.version, 3);
+    assert.deepEqual(result.applied_versions, [2, 3, 4]);
+    assert.equal(result.version, 4);
     assert.equal(
       (await db.query("SELECT name FROM homeauto_online.households")).rows[0]
         .name,

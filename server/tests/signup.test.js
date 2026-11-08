@@ -57,7 +57,7 @@ test('self-service registration preserves private household and credential bound
     finally { await f.admin(db => db.exec('DROP TRIGGER reject_signup_membership ON homeauto_online.memberships; DROP FUNCTION public.reject_signup_membership()')); }
   });
   await t.test('schema2 keeps sign-in available and registration fails closed during rollout', async () => {
-    await f.admin(db => db.exec('DROP FUNCTION homeauto_online.register_user(uuid,uuid,text,text,text); DELETE FROM public.homeauto_online_migrations WHERE version=3'));
+    await f.admin(db => db.exec('DROP FUNCTION homeauto_online.register_user(uuid,uuid,text,text,text); DROP FUNCTION homeauto_online.enroll_browser_gateway(text,uuid,uuid,text,boolean); DELETE FROM public.homeauto_online_migrations WHERE version>=3'));
     await assertOnlineRole(f.pool); const login = await auth.login('new.owner', password, 'schema2-rollout'); assert.equal(login.session.role, 'owner');
     const before = await count(); await assert.rejects(auth.register('pending-schema', 'Test', password, 'schema2-signup'), { code: 'SIGNUP_UNAVAILABLE', status: 503 }); assert.deepEqual(await count(), before); await auth.logout(login.token);
   });

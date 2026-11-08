@@ -33,3 +33,5 @@ __pycache__/
 .npmrc
 .pypirc
 .ssh/
+# Private, one-time gateway enrollment downloads.
+homeauto-gateway*.json

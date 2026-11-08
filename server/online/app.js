@@ -4,6 +4,7 @@ const { DomainError, fields, text, uuid } = require("../lib/errors");
 const { OnlineError, fail } = require("./db");
 const { createCloudAuth, fn, secureEqual } = require("./auth");
 const { createOnlineStore, event } = require("./store");
+const { createGatewaySetup } = require('./gateway-setup');
 const { byId } = require("../lib/registry");
 const { defaults } = require("../services/home");
 const { resolveCommand } = require("../voice/intent");
@@ -18,6 +19,7 @@ function createOnlineApp({ pool, config, logger = console }) {
     });
   app.locals.auth = auth;
   app.locals.store = store;
+  const gatewaySetup = createGatewaySetup(pool, () => [...config.origins][0]);
   const route = (fn) => (req, res, next) =>
     Promise.resolve()
       .then(() => fn(req, res, next))
@@ -193,6 +195,11 @@ function createOnlineApp({ pool, config, logger = console }) {
     }),
   );
   app.get("/api/auth/session", (req, res) => res.json(auth.dto(req.actor)));
+  app.get('/api/gateway-setup', route(async (req, res) => res.json(await gatewaySetup.status(req.actor))));
+  app.post('/api/gateway-setup', route(async (req, res) => {
+    await auth.rate('gateway-setup:' + req.actor.user_id, 5, 3600);
+    res.status(201).json(await gatewaySetup.enroll(req.actor, req.body));
+  }));
   app.post(
     "/api/auth/activity",
     route(async (req, res) => {

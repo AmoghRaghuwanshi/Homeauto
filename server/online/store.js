@@ -231,6 +231,8 @@ function createOnlineStore(
       espBoards,
       mqtt: { connected: !!(gatewayCurrent && gateway.mqtt_connected) },
       gateway: {
+        registered: !!gateway && !gateway.revoked_at,
+        state: !gateway ? 'not_enrolled' : gateway.revoked_at ? 'revoked' : !gateway.last_seen_at ? 'awaiting_connection' : gatewayCurrent ? 'connected' : 'offline',
         connected: gatewayCurrent,
         last_seen_at: gateway?.last_seen_at || null,
       },

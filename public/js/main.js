@@ -6,12 +6,14 @@ import { state, acceptSnapshot, connectState, disconnectState, isGatewayCurrent 
 import { renderView } from './views.js';
 import { VoiceCapture } from './voice-controller.js';
 import { Navigation, routeInfo, captureFocus, restoreFocus } from './navigation.js';
+import { createDemoHome } from './demo.js';
 
 const app = document.getElementById('app'); const toasts = document.getElementById('toasts');
 let renderId = 0, lastPath = '', main, shellBuilt = false, assistantBuilt = false, knownAlerts = new Set(), initialAlerts = false, navigation;
 let pendingNavigation = { direction: 'none', restore: true, initial: true };
 let authNotice = false, authUsername = '', authInitialized = false;
 let signupRequest = null, signupFailure = null;
+let realDemoSession = null;
 const ctx = {
   pending: new Set(), feedback: new Map(), readingAlerts: new Set(), filters: {}, conversation: { transcript: '', response: '', draft: '', resultId: null, securityLink: false }, wakeRequired: false,
   notify(message, error = false) { const node = el('div', { class: 'toast' + (error ? ' toast-error' : '') }, message); toasts.append(node); while (toasts.children.length > 3) toasts.firstChild.remove(); let timer; const resume = () => { clearTimeout(timer); timer = setTimeout(() => node.remove(), error ? 12000 : 6500); }; resume(); node.addEventListener('mouseenter', () => clearTimeout(timer)); node.addEventListener('mouseleave', resume); },
@@ -21,10 +23,10 @@ const ctx = {
   navigate: path => navigation.go(path),
   setQuery(patch, renderNow = true) { navigation.query(patch); if (renderNow) render(); },
   async logout() { await ctx.run(async () => { await Api.request('/api/auth/logout', { method: 'POST', body: {} }); resetSession(); }); },
-  async switchHome(householdId) { if (ctx.switchingHome) return; ctx.switchingHome = true; try { await ctx.run(async () => { const session = await Api.request('/api/auth/household', { method: 'POST', body: { household_id: householdId } }); ctx.assistantGeneration = (ctx.assistantGeneration || 0) + 1; ctx.voice.cancel(); ctx.stopAudio(); disconnectState(); ctx.pending.clear(); ctx.feedback.clear(); ctx.preferenceBusy = false; state.session = session; ctx.activityPage = null; knownAlerts = new Set(); initialAlerts = false; ctx.conversation = { transcript: '', response: '', draft: '', resultId: null, securityLink: false }; shellBuilt = false; assistantBuilt = false; await ctx.refresh(); connectState(onUpdate, ctx.refresh); ctx.navigate('/'); }); } finally { ctx.switchingHome = false; } },
+  async switchHome(householdId) { if (ctx.switchingHome) return; ctx.switchingHome = true; try { await ctx.run(async () => { const session = await Api.request('/api/auth/household', { method: 'POST', body: { household_id: householdId } }); Api.exitDemo(); realDemoSession = null; ctx.assistantGeneration = (ctx.assistantGeneration || 0) + 1; ctx.voice.cancel(); ctx.stopAudio(); disconnectState(); ctx.pending.clear(); ctx.feedback.clear(); ctx.preferenceBusy = false; state.session = session; ctx.activityPage = null; knownAlerts = new Set(); initialAlerts = false; ctx.conversation = { transcript: '', response: '', draft: '', resultId: null, securityLink: false }; shellBuilt = false; assistantBuilt = false; await ctx.refresh(); connectState(onUpdate, ctx.refresh); ctx.navigate('/'); }); } finally { ctx.switchingHome = false; } },
   async command(id, action) {
     if (ctx.pending.has(id)) return; const sessionVersion = Api.sessionVersion; ctx.pending.add(id); ctx.feedback.delete(id); render();
-    try { const result = await Api.request('/api/devices/' + id + '/command', { method: 'POST', body: { action, idempotency_key: crypto.randomUUID() } }); if (sessionVersion !== Api.sessionVersion || !state.session) return; ctx.notify(t(({ observed: 'Controller reports', expired: 'Request expired', rejected: 'Request rejected', failed: 'Request failed', uncertain: 'Not confirmed' })[result.command.state] || 'Request accepted')); await ctx.refresh(); return result.command; }
+    try { const result = await Api.request('/api/devices/' + id + '/command', { method: 'POST', body: { action, idempotency_key: crypto.randomUUID() } }); if (sessionVersion !== Api.sessionVersion || !state.session) return; ctx.notify(t(Api.demo ? 'Demo light updated' : ({ observed: 'Controller reports', expired: 'Request expired', rejected: 'Request rejected', failed: 'Request failed', uncertain: 'Not confirmed' })[result.command.state] || 'Request accepted')); await ctx.refresh(); return result.command; }
     catch (e) { if (sessionVersion !== Api.sessionVersion || !state.session) return; ctx.feedback.set(id, errorText(e)); ctx.notify(errorText(e), true); }
     finally { if (sessionVersion === Api.sessionVersion) { ctx.pending.delete(id); render(); } }
   },
@@ -51,6 +53,18 @@ const ctx = {
     } catch (e) { ctx.notify(errorText(e), true); }
   },
 };
+async function switchDemo(enabled, destination = '/') {
+  const session = realDemoSession || state.session;
+  ctx.voice.cancel();ctx.stopAudio();disconnectState();ctx.pending.clear();ctx.feedback.clear();ctx.activityPage=null;ctx.readingAlerts.clear();
+  ctx.conversation={transcript:'',response:'',draft:'',resultId:null};knownAlerts=new Set();initialAlerts=false;shellBuilt=false;assistantBuilt=false;
+  if(enabled){let storage=null;try{storage=sessionStorage;}catch{}realDemoSession=structuredClone(session);Api.startDemo(session,createDemoHome(session,storage));state.session=session;}
+  else{Api.exitDemo();realDemoSession=null;state.session=await Api.request('/api/auth/session');}
+  await ctx.refresh();connectState(onUpdate,ctx.refresh);navigation.go(destination,{replace:true,direction:'none'});render(true);
+}
+ctx.startDemo=()=>ctx.run(()=>switchDemo(true));
+ctx.exitDemo=destination=>ctx.run(()=>switchDemo(false,typeof destination==='string'?destination:'/'));
+ctx.demoScenario=kind=>ctx.run(async()=>{Api.demo?.scenario(kind);ctx.activityPage=null;await ctx.refresh();});
+ctx.resetDemo=()=>modal('Reset demo home',el('p',{},t('Reset only the simulated lights, favorites and scenarios in this browser tab.')),{confirmLabel:'Reset demo',onConfirm:async()=>{Api.demo?.reset();ctx.activityPage=null;await ctx.refresh();}});
 function setVoiceState(value) {
   const mic = document.getElementById('assistant-mic'); const label = document.getElementById('mic-label'); const status = document.getElementById('voice-status'); const cancel = document.getElementById('cancel-voice');
   if (!mic) return; const listening = value === 'listening';
@@ -85,7 +99,7 @@ function updateCommandConversation() {
   const ids = ctx.conversation.commandIds; if (!ids?.length || !state.snapshot) return;
   const commands = ids.map(id => state.snapshot.commands.find(c => c.id === id)); if (commands.some(c => !c)) return;
   if (commands.every(c => ['observed', 'uncertain', 'failed', 'rejected', 'expired'].includes(c.state))) {
-    ctx.conversation.response = commands.map(c => { const d = state.snapshot.devices.find(d => d.id === c.device_id); return `${d.name}: ${t(c.state === 'observed' ? 'Controller reports' : 'Not confirmed')} ${c.state === 'observed' ? t(c.action) : ''}`; }).join('. ');
+    ctx.conversation.response = commands.map(c => { const d = state.snapshot.devices.find(d => d.id === c.device_id); return `${d.name}: ${t(c.state === 'observed' ? (Api.demo ? 'Simulated report' : 'Controller reports') : 'Not confirmed')} ${c.state === 'observed' ? t(c.action) : ''}`; }).join('. ');
     ctx.conversation.response += (ctx.conversation.commandErrors || []).map(error => { const device = state.snapshot.devices.find(d => d.id === error.device_id); return '. ' + (device?.name || error.device_id) + ': ' + errorText(error); }).join('');
     ctx.conversation.commandIds = null; if (state.snapshot.preferences.spoken_replies) ctx.speak(ctx.conversation.resultId); ctx.updateConversation?.();
   }
@@ -113,7 +127,7 @@ function buildShell() {
   const session = state.session.user; const activeAlerts = state.snapshot.alerts.filter(a => a.state === 'active' && !a.receipt.read_at).length;
   const top = el('header', { class: 'topbar' }, el('a', { class: 'home-name', href: '/', 'aria-label': t('My home'), title: t('Go home') }, icon('home'), el('span', {}, state.snapshot.home.home_name)), el('div', { class: 'top-actions' }, el('a', { href: '/security/alerts', class: 'icon-button', 'aria-label': t('Alerts') + (activeAlerts ? ' (' + activeAlerts + ')' : '') }, icon('bell')), el('a', { href: '/settings', class: 'icon-button profile', 'aria-label': t('Settings') }, session.preview ? icon('settings') : session.display_name.slice(0, 2).toUpperCase())));
   main = el('main', { class: 'main', id: 'main', tabindex: '-1' }); const workspace = el('div', { class: 'workspace' }, top);
-  if (state.snapshot.system.simulation) workspace.append(el('div', { class: 'banner banner-simulation', role: 'status' }, icon('info'), t('Simulation — no physical devices connected')));
+  if (state.snapshot.system.simulation && !Api.demo) workspace.append(el('div', { class: 'banner banner-simulation', role: 'status' }, icon('info'), t('Simulation — no physical devices connected')));
   workspace.append(main); app.replaceChildren(link('Skip to content', '#main', 'skip'), sidebar, workspace); shellBuilt = true;
 }
 function frameView(view) {
@@ -130,8 +144,11 @@ function frameView(view) {
   view.prepend(header); return view;
 }
 function globalBanner() {
+  if (Api.demo) return el('div',{class:'banner banner-simulation demo-mode-bar',role:'status'},icon('info'),el('div',{class:'grow'},el('strong',{},t('Demo home')),el('p',{class:'small'},t('Simulated devices. No physical commands are sent.'))),button('Use my real home',()=>ctx.exitDemo(),{kind:'secondary'}));
   if (state.connecting) return el('p', { class: 'small muted' }, t('Connecting…'));
-  if (Api.mode === 'cloud' && (!state.connected || !isGatewayCurrent())) return el('div', { class: 'banner', role: 'status' }, icon('wifi'), el('div', { class: 'grow' }, el('strong', {}, t(!state.connected ? 'Cloud connection lost' : 'Home gateway is offline')), el('p', { class: 'small' }, t(!state.connected ? 'Device reports may be old. Check your internet connection.' : 'Check the gateway power and internet connection.'))), button('Try again', () => ctx.run(ctx.refresh), { kind: 'ghost' }));
+  if (Api.mode==='cloud' && state.connected && state.snapshot.gateway?.state === 'not_enrolled') return null;
+  if (Api.mode==='cloud' && state.connected && ['awaiting_connection','revoked'].includes(state.snapshot.gateway?.state)) return el('div',{class:'banner',role:'status'},icon('home'),el('div',{class:'grow'},el('strong',{},t(state.snapshot.gateway.state==='revoked'?'Gateway access revoked':'Waiting for your home hub')),el('p',{class:'small'},t('Open gateway setup to finish connecting this home.'))),link('Gateway setup','/settings/gateway','button button-secondary'));
+  if (Api.mode === 'cloud' && (!state.connected || !isGatewayCurrent())) return el('div', { class: 'banner', role: 'status' }, icon('wifi'), el('div', { class: 'grow' }, el('strong', {}, t(!state.connected ? 'Cloud connection lost' : 'Home gateway is offline')), el('p', { class: 'small' }, t(!state.connected ? 'Device reports may be old. Check your internet connection.' : 'Check the gateway power and internet connection.'))), link('Gateway setup', '/settings/gateway', 'button button-secondary'), button('Try again', () => ctx.run(ctx.refresh), { kind: 'ghost' }));
   if (!state.connected) return el('div', { class: 'banner', role: 'status' }, icon('wifi'), el('div', { class: 'grow' }, el('strong', {}, t('Home hub unavailable')), el('p', { class: 'small' }, t('Check your local connection.'))), button('Try again', () => ctx.run(ctx.refresh), { kind: 'ghost' }));
   const critical = state.snapshot.alerts.find(a => a.state === 'active' && a.severity === 'critical');
   if (critical && !location.pathname.includes('/alerts/')) return el('div', { class: 'banner banner-danger' }, icon('alert'), el('div', { class: 'grow' }, el('strong', {}, t('Gas sensor reports a possible issue.')), el('p', { class: 'small' }, t('Uncalibrated reading. Use an independent gas alarm.'))), link('View alert', '/security/alerts/' + critical.id));
@@ -172,7 +189,7 @@ function onUpdate() {
   updateCommandConversation();
   for (const a of state.snapshot?.alerts || []) if (a.state === 'active' && !knownAlerts.has(a.id)) {
     knownAlerts.add(a.id);
-    if (initialAlerts && ['gas', 'motion'].includes(a.kind)) { const message = t(a.kind === 'gas' ? 'Gas sensor reports a possible issue.' : 'Movement was detected.'); ctx.notify(message, a.kind === 'gas'); if ('Notification' in window && Notification.permission === 'granted' && state.snapshot.preferences.notification_categories.includes(a.kind)) try { new Notification('HomeAuto', { body: message, tag: a.id }); } catch {} }
+    if (initialAlerts && ['gas', 'motion'].includes(a.kind)) { const message = t(Api.demo ? 'Demo sensor scenario updated' : a.kind === 'gas' ? 'Gas sensor reports a possible issue.' : 'Movement was detected.'); ctx.notify(message, a.kind === 'gas'); if (!Api.demo && 'Notification' in window && Notification.permission === 'granted' && state.snapshot.preferences.notification_categories.includes(a.kind)) try { new Notification('HomeAuto', { body: message, tag: a.id }); } catch {} }
   }
   initialAlerts = true;
   if (location.pathname === '/assistant' && assistantBuilt) { setVoiceState(ctx.voice.state); ctx.updateConversation?.(); return; }
@@ -257,7 +274,7 @@ function renderLogin(draft = {}) {
   form.addEventListener('submit', async event => { event.preventDefault(); if (submit.disabled) return; submit.disabled = true; error.hidden = true; try { const session = await Api.request('/api/auth/login', { method: 'POST', body: { username: username.input.value.trim(), password: password.input.value } }); if (generation !== renderId) { await bootstrap(); return; } authNotice = false; authUsername = ''; state.session = session; await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(true); } catch (e) { if (generation === renderId) { error.textContent = errorText(Api.mode === 'cloud' ? accountError(e) : e); error.hidden = false; } } finally { submit.disabled = false; } });
   authLayout(form);
 }
-function resetSession() { Api.sessionVersion++; ctx.pending.clear(); ctx.feedback.clear(); ctx.preferenceBusy = false; ctx.activityPage = null; ctx.assistantGeneration = (ctx.assistantGeneration || 0) + 1; ctx.voice.cancel(); ctx.stopAudio(); disconnectState(); Api.csrf = null; ctx.conversation = { transcript: '', response: '', draft: '' }; knownAlerts = new Set(); initialAlerts = false; document.querySelectorAll('dialog').forEach(d => d.close()); renderLogin(); }
+function resetSession() { Api.exitDemo(); realDemoSession=null; Api.sessionVersion++; ctx.pending.clear(); ctx.feedback.clear(); ctx.preferenceBusy = false; ctx.activityPage = null; ctx.assistantGeneration = (ctx.assistantGeneration || 0) + 1; ctx.voice.cancel(); ctx.stopAudio(); disconnectState(); Api.csrf = null; ctx.conversation = { transcript: '', response: '', draft: '' }; knownAlerts = new Set(); initialAlerts = false; document.querySelectorAll('dialog').forEach(d => d.close()); renderLogin(); }
 document.addEventListener('click', event => { const anchor = event.target.closest('a'); if (!anchor || event.ctrlKey || event.metaKey || event.shiftKey || anchor.target || anchor.hasAttribute('download')) return; const url = new URL(anchor.href); if (url.origin === location.origin && !url.hash && !url.pathname.startsWith('/assets/')) { event.preventDefault(); ctx.navigate(url.pathname + url.search); } });
 window.addEventListener('session-expired', () => { if (state.session) resetSession(); });
 document.addEventListener('action-error', event => ctx.notify(errorText(event.detail), true));
@@ -272,7 +289,7 @@ for (const eventName of ['pointerdown', 'keydown']) document.addEventListener(ev
 }, { passive: true });
 applyPreferences({}, false);
 async function bootstrap() {
-  try { await Api.initialize(); authInitialized = true; state.session = await Api.request('/api/auth/session'); await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(); }
+  try { await Api.initialize(); authInitialized = true; state.session = await Api.request('/api/auth/session'); if(Api.mode==='cloud'&&Api.restoreDemo(state.session)){realDemoSession=structuredClone(state.session);let storage=null;try{storage=sessionStorage;}catch{}Api.startDemo(state.session,createDemoHome(state.session,storage));} await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(); }
   catch (error) { if (error.status === 401) return renderLogin(); shellBuilt = false; app.replaceChildren(el('main', { class: 'main' }, empty(Api.mode === 'cloud' ? (['CLOUD_CONFIGURATION_REQUIRED', 'CLOUD_SCHEMA_REQUIRED', 'UNSAFE_DATABASE_ROLE'].includes(error.code) ? 'Cloud setup is incomplete' : 'HomeAuto is unavailable') : 'Home hub unavailable', Api.mode === 'cloud' ? (['CLOUD_CONFIGURATION_REQUIRED', 'CLOUD_SCHEMA_REQUIRED', 'UNSAFE_DATABASE_ROLE'].includes(error.code) ? 'Ask the home owner to finish cloud setup.' : 'Check your internet connection and try again.') : 'Check your local connection.', button('Try again', bootstrap)))); }
 }
 await bootstrap();

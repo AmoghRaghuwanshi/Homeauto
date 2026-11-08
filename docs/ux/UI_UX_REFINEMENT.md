@@ -101,3 +101,9 @@ Mobile/tablet form text now has a16px minimum while honoring larger theme/access
 
 The new test:mobile script checks phone portrait/landscape, all themes, Hindi, large text/controls, detail screens, form sizes, touch targets, modal focus, short-height scrolling, typed assistant requests and tablet/desktop layouts. CI runs Chromium and WebKit as separate isolated jobs with synthetic screenshots. Native iPhone/Android hardware, real soft-keyboard overlays, notch measurements and screen-reader usability still require device acceptance. Browser-emulated WebKit is not certification of every Safari release.
 
+
+## New-account setup and presentation mode, 2026-11-08
+
+Replaced the empty-home dead end with a primary gateway setup card and secondary demo choice. Setup distinguishes no enrollment, waiting for first report, connected, offline and revoked states. The owner gets three concrete instructions and a private download after password confirmation. Existing registered gateways are protected from accidental replacement.
+
+An explicit Demo home reuses the approved semantic palettes, navigation, device controls, rooms, assistant and activity. A persistent banner states that devices are simulated and provides an exit. Sensor scenarios and reset have task-specific controls. Demo observations use simulated source labels; real security qualifiers remain intact. Mobile cards stack, command paths wrap, and actions retain the existing minimum target and focus styles. Default theme05 and all four palettes remain. No online assets or runtime services were added.

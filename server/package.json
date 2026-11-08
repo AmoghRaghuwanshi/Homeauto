@@ -10,7 +10,7 @@
     "tls:setup": "node scripts/tls-setup.js",
     "recovery": "node scripts/recovery.js",
     "benchmark:speech": "node scripts/benchmark-speech.js",
-    "test": "node --test --test-concurrency=1 tests/core.test.js tests/http.test.js tests/tls.test.js tests/remediation.test.js tests/cloud.test.js tests/online.test.js tests/online-safety.test.js tests/online-client.test.js tests/publication.test.js tests/signup.test.js",
+    "test": "node --test --test-concurrency=1 tests/core.test.js tests/http.test.js tests/tls.test.js tests/remediation.test.js tests/cloud.test.js tests/online.test.js tests/online-safety.test.js tests/online-client.test.js tests/publication.test.js tests/signup.test.js tests/onboarding.test.js",
     "test:online": "node --test --test-concurrency=1 tests/online.test.js tests/online-safety.test.js tests/online-client.test.js",
     "test:online-staging": "node scripts/online-staging-check.js --apply",
     "test:cloud": "node --test tests/cloud.test.js",
@@ -23,7 +23,8 @@
     "test:remediation": "node scripts/remediation-check.js",
     "test:voice-browser": "node scripts/native-browser-check.js",
     "preview:isolated": "node scripts/preview.js",
-    "test:speech": "node scripts/speech-check.js"
+    "test:speech": "node scripts/speech-check.js",
+    "test:onboarding": "node scripts/onboarding-browser-check.js"
   },
   "dependencies": {
     "express": "^4.21.0",

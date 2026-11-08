@@ -1,5 +1,9 @@
 # HomeAuto development checkpoint
 
+## In progress: gateway-first onboarding and Demo home, 2026-11-08
+
+User chose gateway setup first, with an explicit demo alongside. Additive migration004 has passed the isolated Neon branch; local backend168/168 and Chromium96-screen matrix pass. New owner setup creates a private telemetry-only connection file after password confirmation. Demo actions stay in the browser and never update real household devices. Full two-engine regressions, publication, compatible Vercel deployment, production004 rollout and live read-only/demo acceptance remain. See docs/cloud/GATEWAY_SETUP.md. All earlier work below is preserved.
+
 ## Latest: signup integration reliability repair, 2026-11-08
 
 Current checkpoint: runtime7fc588a is deployed Ready as dpl_CCJ7DbAZLbn5TDRaQEpRFLPwbXoS; CI42450765840 passed all four jobs. Cloud signup minimum10 is aligned in UI/API/hash wrapper, with165 backend tests and two-engine full browser regressions. The initial owner login was verified on the latest release using its private saved credentials, correct owner home/Settings and Sign out. The alternative spelling reported by the user is unregistered; no existing password was reset. A fresh exactly10-character production signup/login/logout also succeeded through the native browser after the normal signup-limit window elapsed. Independent Neon readback confirms one new private owner home/account/audit and no active test session. The earlier rate-limit block and one transient initial login connection failure remain recorded, not hidden; no limiter was bypassed. Schema3 and restricted grants remain; health200/session401 pass via curl. Documentation-only follow-up commits leave runtime unchanged. Remaining work is external gateway/hardware/native-phone acceptance and restricted log access, not another auth rewrite or credential overwrite. The detailed progression below is preserved as history.

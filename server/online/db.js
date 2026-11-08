@@ -65,9 +65,9 @@ async function assertOnlineRole(pool) {
   const version = await pool.query(
     "SELECT max(version)::int version FROM public.homeauto_online_migrations",
   );
-  // Version3 is additive. Keep version2 sign-in available during the rollout;
-  // registration fails closed until its function and grants are installed.
-  if (![2, 3].includes(version.rows[0]?.version))
+  // Additive versions3/4 keep existing sign-in available during rollout.
+  // Registration/enrollment fail closed until their helpers are installed.
+  if (![2, 3, 4].includes(version.rows[0]?.version))
     fail(
       "CLOUD_SCHEMA_REQUIRED",
       503,

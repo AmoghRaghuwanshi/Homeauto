@@ -83,3 +83,9 @@ Design references: [Apple navigation and search](https://developer.apple.com/des
 and [tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars).
 These informed predictable hierarchy and persistent destinations; no branded
 assets or layouts were copied.
+
+## Gateway setup and Demo home, 2026-11-08
+
+`/settings/gateway` is a Settings detail screen with parent Settings and the existing logical/browser back behavior. My home always returns to `/`. Empty cloud homes offer gateway setup first and Demo home alongside; they do not show an offline fault for an unenrolled gateway. Awaiting first report, offline and revoked gateways are distinct. Settings → Home gateway remains available to owners.
+
+Demo entry/exit replaces the current route with Home, disconnects the previous transport, clears pending commands and transient conversations, and reconciles a new snapshot. The demo marker restores only for the same authenticated user and household. Auth endpoints always use the real server. Other demo calls stay inside the simulator; no fallback to hardware is permitted. Nested routes, themes and the existing navigation model work in both homes.

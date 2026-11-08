@@ -121,3 +121,11 @@ phrase/structure flags and one soft silhouette/heading-overlap warning. Its
 ordered safety/setup headings are necessary reference organization, so no
 reconstruction was justified. Raw results are in
 `.local/qa/ux/copy/documentation-audit.json`.
+
+## Gateway and demo copy audit, 2026-11-08
+
+Applied the installed Unslop2.3 prose skill to the new English labels and instructions in audit-only mode before considering further rewrites. This is a content audit, not a claim that Unslop designed the UI. Phrase scan:0 findings. Silhouette scan (documentation genre):0 findings. Structure scan: one soft one-line-staccato flag across a concatenated inventory of69 independent UI labels. Readability: grade8.5, with repeated home/demo/gateway/file terms and short-label cadence flags. Rejected those suggestions because combining independent button labels or replacing essential device terminology would impair usability. No unnecessary rewrite was applied to already clear copy.
+
+The substantive correction is contextual: “Home gateway is offline” is no longer used when no gateway exists; it becomes “Set up your home” / “No gateway added”. An enrolled but silent gateway reads “Waiting for the first connection”. Actual offline and revoked states retain their meaning. Demo device feedback says “Simulated report”, with a persistent no-physical-commands notice. The 30-day expiry, one-time secret download, password confirmation, replacement consequences and disabled remote actuation are preserved. Existing safety messages are retained. Hindi additions were reviewed manually; English scanner flags were not used to rewrite Hindi.
+
+Raw scanner inputs/results are outside source at D:/homeauto-audit-tools/onboarding-20261108/english-copy.txt and copy-audit.json. No scanner output was copied into production code.

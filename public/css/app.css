@@ -406,3 +406,26 @@ html { scrollbar-color:var(--border-strong) var(--bg); }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
 :root[data-reduced-motion="true"] * { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
 @media (forced-colors:active) { .card,.button,.theme-option,.settings-group,.mic-button { border:1px solid CanvasText; } }
+
+/* New-account setup shares the existing palettes and control scale. */
+.onboarding-page { max-width:960px; margin-inline:auto; }
+.onboarding-options { display:grid; grid-template-columns:1.15fr 1fr; gap:var(--space-6); align-items:stretch; }
+.onboarding-options .card { padding:var(--space-8); align-items:flex-start; }
+.onboarding-options .card > .icon { width:32px; height:32px; color:var(--primary); }
+.onboarding-primary { border-color:var(--primary); background:var(--primary-soft); }
+.onboarding-options .button { margin-top:auto; max-width:100%; }
+.setup-steps { margin:0; padding-inline-start:24px; display:grid; gap:var(--space-6); }
+.setup-steps li { padding-inline-start:var(--space-2); min-width:0; }
+.setup-steps p { margin-top:var(--space-2); }
+.setup-command { max-width:100%; white-space:pre-wrap; overflow-wrap:anywhere; padding:var(--space-4); background:var(--surface-muted); border:1px solid var(--border); border-radius:var(--radius-control); font-size:.875rem; }
+.gateway-page,.gateway-page .card,.onboarding-options > * { min-width:0; }
+.demo-mode-bar { flex-wrap:wrap; border:1px solid var(--border-strong); }
+.demo-mode-bar .grow { min-width:160px; }
+.demo-scenarios .row { gap:var(--space-3); }
+@media (max-width:640px) {
+  .onboarding-options { grid-template-columns:1fr; gap:var(--space-4); }
+  .onboarding-options .card { padding:var(--space-6); }
+  .onboarding-options .button { width:100%; }
+  .demo-mode-bar .button { width:100%; }
+  .gateway-page .row > .button { flex:1 1 180px; }
+}

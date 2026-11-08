@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const migrationFiles = ["001_online.sql", "002_bounded_maintenance.sql", "003_self_service_signup.sql"];
+const migrationFiles = ["001_online.sql", "002_bounded_maintenance.sql", "003_self_service_signup.sql", "004_gateway_onboarding.sql"];
 const migrations = () =>
   migrationFiles.map((file, index) => {
     const sql = fs.readFileSync(

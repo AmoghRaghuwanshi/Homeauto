@@ -70,7 +70,7 @@ async function main() {
     result.checks.push('Password confirmation blocks submission; visibility toggle, Hindi labels and in-memory language-switch drafts work without password persistence');
     await page.getByLabel('Confirm password', { exact: true }).fill(password); await page.getByLabel('Username', { exact: true }).fill('cloud-owner'); await page.getByRole('button', { name: 'Create account', exact: true }).click(); await page.getByText('That username is taken. Choose another one.', { exact: true }).waitFor();
     const username = 'registered-' + crypto.randomBytes(5).toString('hex'); await page.getByLabel('Username', { exact: true }).fill(username); await page.getByRole('button', { name: 'Create account', exact: true }).click(); await page.waitForURL(fixture.url + '/login'); await page.getByText('Account created. Sign in to continue.', { exact: true }).waitFor(); assert.equal(await page.getByLabel('Username', { exact: true }).inputValue(), username);
-    await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await page.locator('.primary-nav').waitFor(); await page.waitForURL(fixture.url + '/'); await page.getByRole('heading', { name: 'Connect your home gateway', exact: true }).waitFor();
+    await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await page.locator('.primary-nav').waitFor(); await page.waitForURL(fixture.url + '/'); await page.getByRole('heading', { name: 'Set up your home', exact: true }).waitFor();
     const session = await page.request.get(fixture.url + '/api/auth/session'); const identity = await session.json(); assert.equal(identity.user.role, 'owner'); assert.ok(identity.household_id); assert.notEqual(identity.household_id, fixture.database.household); const snapshot = await (await page.request.get(fixture.url + '/api/snapshot')).json(); assert.equal(snapshot.devices.length, 0);
     result.checks.push('Duplicate feedback, real signup, separate sign-in and empty isolated home succeed');
     await page.goto(fixture.url + '/signup'); await page.waitForURL(fixture.url + '/'); await page.goto(fixture.url + '/settings'); await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor(); assert.equal((await page.request.get(fixture.url + '/api/auth/session')).status(), 401);
@@ -91,7 +91,7 @@ async function main() {
     const signinAndLogout = async username => {
       assert.equal(await page.getByLabel('Username', { exact: true }).inputValue(), username);
       await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-      await page.getByRole('heading', { name: 'Connect your home gateway', exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Set up your home', exact: true }).waitFor();
       await page.goto(fixture.url + '/settings'); await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor();
     };
     const prior = submissions;

@@ -2,6 +2,7 @@
 // list context enter history.state; device state and form secrets never do.
 const roots = { '/': ['Home', 'home'], '/rooms': ['Rooms', 'rooms'], '/security': ['Security', 'security'], '/assistant': ['Shrimaan', 'assistant'], '/settings': ['Settings', 'settings'] };
 const pages = {
+  '/settings/gateway': ['Home gateway', '/settings', 'settings'],
   '/security/door': ['Front door', '/security', 'security'],
   '/security/access-cards': ['Access cards', '/security', 'security'],
   '/security/activity': ['Activity', '/security', 'security'],

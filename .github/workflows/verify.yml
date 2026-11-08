@@ -81,6 +81,7 @@ jobs:
       - run: npm exec --prefix server -- playwright install --with-deps ${{ matrix.browser }}
       - run: npm --prefix server run test:mobile -- --browser=${{ matrix.browser }}
       - run: npm --prefix server run test:signup -- --browser=${{ matrix.browser }}
+      - run: npm --prefix server run test:onboarding -- --browser=${{ matrix.browser }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -88,4 +89,5 @@ jobs:
           path: |
             .local/qa/mobile/${{ matrix.browser }}
             .local/qa/signup/${{ matrix.browser }}
+            .local/qa/onboarding/${{ matrix.browser }}
           retention-days: 3
