@@ -193,7 +193,7 @@ function authLayout(form, signup = false) {
   const cloud = Api.mode === 'cloud';
   document.title = t(signup ? 'Create account' : 'Sign in') + ' · HomeAuto';
   app.replaceChildren(el('main', { class: 'login-layout' }, el('section', { class: 'login-story' }, brand(), el('p', { class: 'eyebrow' }, t(cloud ? 'HomeAuto online' : 'Local and private')), el('h1', { tabindex: '-1' }, t(signup ? 'Create your account' : cloud ? 'Sign in to HomeAuto' : 'Your home stays yours.')), el('p', {}, t(signup ? 'New accounts get a separate home. Devices connect through your home gateway.' : cloud ? 'Use your cloud account for online access. Local controls stay on the home hub.' : 'Internet is not needed for everyday controls.')), el('img', { src: '/assets/home-scene.svg', alt: '', width: 260, height: 220 })), el('section', { class: 'login-form-wrap', 'aria-label': t(signup ? 'Create account' : 'Sign in') }, form)));
-  const heading = app.querySelector('h1'); requestAnimationFrame(() => { if (heading.isConnected) heading.focus({ preventScroll: true }); });
+  const heading = app.querySelector('h1'); requestAnimationFrame(() => { if (heading.isConnected && (document.activeElement === document.body || !app.contains(document.activeElement))) heading.focus({ preventScroll: true }); });
 }
 function renderSignup(draft = signupRequest?.draft || {}) {
   shellBuilt = false; main = null; ++renderId; lastPath = '';

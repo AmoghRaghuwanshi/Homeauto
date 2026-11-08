@@ -20,6 +20,8 @@ The user then supplied a username/display name and requested a10-character minim
 
 The existing owner's private credentials were independently verified against the actual live API: login200, correct household and owner role, logout200 and revoked session401. The password was neither printed nor changed. The user was given the private local file link rather than asked to send a password in chat. Minimum-policy follow-up verification passes165 full backend tests,23 focused tests and9 focused Chromium groups/2 accessibility captures with zero violations/errors. Full release CI and live10-character creation are required before declaring that follow-up deployed.
 
+Policy source eaa414b passed secrets/software/Chromium but its WebKit signup job failed in CI42450372856. The retained artifact showed a blank first name field despite fast test input and the correct name-required message. Deferred heading focus could steal focus from immediate form entry (and from a newly focused error). The heading now receives focus only if the user has not already focused a current app element. A deterministic rerender/early-input assertion and a filled-name assertion cover this race; focused WebKit then passed9 groups/2 axe captures. The failed run/artifact is retained, not relabeled a success. This correction is included in the replacement policy release.
+
 ## Initial connection repair
 
 The first live check returned CLOUD_CONFIGURATION_REQUIRED because DATABASE_URL was absent. After the user's Marketplace connection, the API reached Neon but correctly rejected neondb_owner with UNSAFE_DATABASE_ROLE. Both the production and development HomeAuto schemas were initially absent.

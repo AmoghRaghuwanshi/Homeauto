@@ -76,9 +76,17 @@ async function main() {
     await page.goto(fixture.url + '/signup'); await page.waitForURL(fixture.url + '/'); await page.goto(fixture.url + '/settings'); await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor(); assert.equal((await page.request.get(fixture.url + '/api/auth/session')).status(), 401);
     result.checks.push('Signed-in users redirect from signup; Sign out revokes the session');
     await signup();
+    const keepsInputFocus = await page.evaluate(async () => {
+      (await import('/js/preferences.js')).applyPreferences({ language: 'en' });
+      const input = document.querySelector('form input'); input.focus(); input.value = 'Quick input';
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      return document.activeElement === input && input.value === 'Quick input';
+    });
+    assert.equal(keepsInputFocus, true, 'Deferred heading focus must not interrupt active form input');
     const fillSignup = async (username, secret = password) => {
       await page.getByLabel('Your name', { exact: true }).fill('Integration test owner'); await page.getByLabel('Username', { exact: true }).fill(username);
       await page.getByLabel('Password', { exact: true }).fill(secret); await page.getByLabel('Confirm password', { exact: true }).fill(secret);
+      assert.equal(await page.getByLabel('Your name', { exact: true }).inputValue(), 'Integration test owner');
     };
     const signinAndLogout = async username => {
       assert.equal(await page.getByLabel('Username', { exact: true }).inputValue(), username);
