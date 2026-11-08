@@ -32,6 +32,8 @@ After the normal throttle window elapsed (confirmed against UTC time), the same 
 
 The documentation-only CI follow-up hit an upstream504 downloading the pinned Gitleaks archive before scanning; the publication check itself had zero issues. The connector could not rerun the job (Actions write permission403). Added bounded retries to that HTTPS GET download; the exact version, SHA256 verification and complete-history scan remain required. Local published-history scanning reports zero findings. This CI-only adjustment does not change the deployed application.
 
+The direct release URL continued returning504 through all bounded retries. The official GitHub release API identified immutable asset378332058 with the same pinned SHA256. Downloading it through the official asset API succeeded and independently matched that checksum. CI now uses that public API asset URL with the required octet-stream header, retaining bounded retries, TLS verification, the original version/digest and full-history scan. No alternate vendor, unverified mirror or token was introduced.
+
 ## Initial connection repair
 
 The first live check returned CLOUD_CONFIGURATION_REQUIRED because DATABASE_URL was absent. After the user's Marketplace connection, the API reached Neon but correctly rejected neondb_owner with UNSAFE_DATABASE_ROLE. Both the production and development HomeAuto schemas were initially absent.
