@@ -1,0 +1,13 @@
+/* Task feedback is immediate. Presentation movement never delays a command. */
+@keyframes spin {to{transform:rotate(360deg);}}
+@keyframes page-in {from{transform:translateY(5px);}to{transform:translateY(0);}}
+@keyframes page-return {from{transform:translateY(-5px);}to{transform:translateY(0);}}
+@keyframes dialog-in {from{transform:translateY(10px) scale(.99);}to{transform:translateY(0) scale(1);}}
+@keyframes toast-in {from{transform:translateY(8px);}to{transform:translateY(0);}}
+.route-enter {animation:page-in 170ms var(--ease);}.dialog[open]{animation:dialog-in 190ms var(--ease);}.toast{animation:toast-in 180ms var(--ease);}
+.route-enter[data-direction="back"]{animation-name:page-return;}
+.room-card,.device-card,.summary-card {transition:background-color 180ms var(--ease),border-color 180ms var(--ease),box-shadow 180ms var(--ease);}
+.mic-button {transition:background-color 160ms var(--ease),transform 120ms var(--ease);}.mic-button:active:not(:disabled){transform:scale(.97);}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;}}
+:root[data-reduced-motion="true"] *,:root[data-reduced-motion="true"] *::before,:root[data-reduced-motion="true"] *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important;}
+@media(forced-colors:active){.card,.button,.theme-option,.settings-group,.mic-button,.banner,.room-card,.sidebar{border:1px solid CanvasText;}.sidebar{background:Canvas;color:CanvasText;}.nav-item,.sidebar .brand{color:CanvasText;}}

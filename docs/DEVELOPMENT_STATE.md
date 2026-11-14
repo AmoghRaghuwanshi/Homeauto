@@ -1,6 +1,20 @@
 # HomeAuto development checkpoint
 
-## Latest: gateway-first onboarding and Demo home, 2026-11-08
+## Latest: state-machine audit2, 2026-11-14
+
+The second state-machine audit is complete for its stated scope; four findings remain open. Read [STATE_MACHINE_AUDIT_2.md](audit/STATE_MACHINE_AUDIT_2.md) alongside the preserved first inventory. Six actual-source mocked counterexamples cover household/batch ownership, command busy cleanup after reauthentication, voice cancellation/handshake settlement and stale assistant errors. A real-browser journey with mocked APIs confirms that an All lights off operation can continue into another selected home. This is action-scope confusion for an authorized multi-home user, not a demonstrated backend authorization bypass or live actuation.
+
+77 selected local/cloud/frontend safety regressions pass. Evidence is at `D:/homeauto-audit-tools/state-machines-v2-20261114`. No application/UI, backend, firmware, MQTT, auth policy or production changes were made for this audit. The UI checkpoint below remains intact; only audit documentation and this development status are added/updated. Remediation has not been performed or deployed. Next work, if requested: shared realm/batch ownership first, then command lock ownership, voice settlement and assistant error ownership. Do not discard or redesign the saved UI while addressing those transitions.
+
+## Latest: local Stageshow UI/UX reconstruction, 2026-11-14
+
+The user's current priority is completing and preserving the UI/UX rebuild. State-machine audit2 is deferred; `docs/audit/STATE_MACHINE_AUDIT.md` preserves the baseline inventory. Do not restart either task or discard the existing changes. Current implementation, actual test results and retained failures are in [STAGESHOW_REBUILD.md](ux/STAGESHOW_REBUILD.md).
+
+Frontend source now contains new semantic palettes/style modules, production DOM components, shell, page compositions, responsive layouts and restrained motion. All four named themes remain, with05 default. Backend, auth policy, SQL, firmware, MQTT and production are unchanged. Local simulation is running at http://127.0.0.1:3012 . No push or deployment is authorized by the reconstruction brief.
+
+A recovery checkpoint of24 changed/new source/report files, a tracked patch, SHA256 manifest and ZIP is at `D:/homeauto-audit-tools/stageshow-20261114/uiux-preserved-20261114-1250`. It was taken before this documentation update; the final preserved snapshot is recorded in the rebuild report. Final local checks pass:172 backend/coordinator tests;30 UX and9 remediation groups; each browser182 mobile layouts/45 axe scans and300 wide layouts/100 scans; signup and96-capture gateway/demo checks in both engines. Final source archive: `D:/homeauto-audit-tools/stageshow-20261114/uiux-final-20261114`. Earlier failed runs remain recorded; physical/human acceptance is outside this local verification. All preceding release history below is preserved.
+
+## Previous release: gateway-first onboarding and Demo home, 2026-11-08
 
 Completed and live at https://homeauto.amoghbuilds.tech. Runtime source582c6febf61770a9329056f7380e52cf3a52deb1, Vercel dpl_6qu8pFSf2SecCFQdfbzFWyFh9A7n Ready, exact deployed assets verified. GitHub run42507300334 passed all four jobs, including the new two-engine onboarding matrix. Backend168/168; local Chromium/WebKit96 screenshots each and8 focused screenshots each pass with zero axe violations or demo hardware writes. Production schema4 installed only after the compatible app was Ready, preserving migration1–3 checksums and15 forced-RLS tables. Runtime cannot select gateway keys; public enrollment denied. No production gateway or key was created (counts0/0).
 

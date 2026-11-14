@@ -1,13 +1,13 @@
-import { el, icon, button, link, modal } from './components.js';
+import { el, icon, button, link, modal, pageHeader } from './components.js';
 import { t, errorText, dateText } from './i18n.js';
 import { Api } from './api.js';
 import { state } from './state.js';
 
-const heading=(title,description)=>el('div',{class:'page-head'},el('div',{class:'page-heading'},el('h1',{tabindex:'-1'},t(title)),el('p',{class:'muted'},t(description))));
+const heading=pageHeader;
 export function welcomeHome(ctx) {
   const owner=state.session.user.role==='owner';
-  return el('div',{class:'stack onboarding-page'},heading('Set up your home','Your account is ready. Connect your home hub, or explore a demo with simulated devices.'),
-    el('div',{class:'onboarding-options'},el('section',{class:'card stack onboarding-primary'},icon('home'),el('h2',{},t('Connect your gateway')),el('p',{},t('Link the home hub that runs your local HomeAuto installation. Your devices will appear after its first report.')),owner?link('Connect gateway','/settings/gateway','button button-primary'):el('p',{class:'muted'},t('Ask the home owner to connect a gateway.'))),
+  return el('div',{class:'stack onboarding-page'},heading('Set up your home','Your account is ready. Connect your home hub, or explore a demo with simulated devices.'), el('div',{class:'welcome-steps','aria-hidden':'true'},el('span',{class:'welcome-step-complete'},icon('check'),'1. ',t('Your details')),el('span',{},'2. ',t('Home gateway')),el('span',{},'3. ',t('Devices'))),
+    el('div',{class:'onboarding-options'},el('section',{class:'card stack onboarding-primary gateway-owner-action'},icon('home'),el('h2',{},t('Connect your gateway')),el('p',{},t('Link the home hub that runs your local HomeAuto installation. Your devices will appear after its first report.')),owner?link('Connect gateway','/settings/gateway','button button-primary'):el('p',{class:'muted'},t('Ask the home owner to connect a gateway.'))),
       el('section',{class:'card stack'},icon('bulb'),el('h2',{},t('Explore a demo home')),el('p',{},t('Try lights, rooms, sensors and Shrimaan without connecting hardware. Everything in the demo is simulated.')),button('Explore demo home',ctx.startDemo,{kind:'secondary'}))),
     el('section',{class:'card stack'},el('h2',{},t('Built for local control')),el('p',{},t('The home hub controls your devices on your home network. The online app shows what the gateway reports.')),el('p',{class:'small muted'},t('For a project presentation, explore the online demo and demonstrate the real devices through your offline hub.'))));
 }

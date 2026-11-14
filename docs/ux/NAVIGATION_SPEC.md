@@ -1,5 +1,7 @@
 # Navigation behavior
 
+2026-11-14 presentation update: the existing route/history contract below is preserved. The reconstructed header/rail/mobile tab styles now live in `public/css/shell.css`, imported through `app.css`; shared production headings/loading UI live in `components.js`. Async screens expose `main[aria-busy="true"]` until the current view commits, so a loading header is not a completed route. Theme persistence and My home behavior continue through the same registry and browser history. Current verification is in [STAGESHOW_REBUILD.md](STAGESHOW_REBUILD.md).
+
 Implemented 2026-11-05 in `public/js/navigation.js`, with shared presentation in
 `main.js` and `app.css`. No framework or backend route change was required.
 

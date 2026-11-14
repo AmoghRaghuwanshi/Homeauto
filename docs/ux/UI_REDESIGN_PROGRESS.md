@@ -1,5 +1,7 @@
 # HomeAuto frontend transformation
 
+2026-11-14 continuation: the new Stageshow-informed reconstruction supersedes the presentation described below. Current source, page/component changes, evidence and remaining verification are recorded in [STAGESHOW_REBUILD.md](STAGESHOW_REBUILD.md). The November6 entry is preserved as historical release context. The new reconstruction remains local and unpublished; state-machine audit2 is deferred at the user's request.
+
 2026-11-06. Active implementation. Hallmark2.0.0 full redesign, app scope, locked HomeAuto themes; Unslop2.3.0 audit-first. Prior context/twelve audit reports retained. Source and145 before screenshots preserved at C:/Users/Amogh/.codex/audit-tools/homeauto-redesign-20261106. Five primary Theme05 mobile before images inspected.
 
 File plan: views.js recomposes Home/Rooms/Security/Assistant/Settings and shared device/room markup; app.css replaces the presentation layer. Secondary pages inherit shared field/list/dialog/header/device recipes. Limited main/components/i18n presentation updates allowed; existing router, APIs/state/permissions/hooks preserved. No backend/firmware changes, framework migration or static mock replacement.

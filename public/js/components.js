@@ -54,18 +54,21 @@ export function icon(name, className = '') {
   for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: 'icon ' + className })) svg.setAttribute(k, v);
   const shape = document.createElementNS(ns, 'path'); shape.setAttribute('d', (shapes[name] || shapes.home)[1]); svg.append(shape); return svg;
 }
-export const button = (label, action, { kind = 'secondary', symbol, disabled = false, className = '', ...rest } = {}) => el('button', { type: 'button', class: `button button-${kind} ${className}`, disabled, onclick: action, ...rest }, symbol && icon(symbol), el('span', {}, t(label)));
+export const button = (label, action, { kind = 'secondary', symbol, disabled = false, className = '', ...rest } = {}) => el('button', { type: 'button', class: `button button-${kind} ${className}`, disabled, onclick: action, ...rest }, symbol && icon(symbol, 'button-icon'), el('span', { class: 'button-label' }, t(label)), el('span', { class: 'button-spinner', 'aria-hidden': 'true' }));
 export const link = (label, href, className = '') => el('a', { href, class: className }, t(label));
 export function field(label, { name, type = 'text', value = '', required = true, maxLength = 80, ...props } = {}) {
   const id = 'field-' + (name || crypto.randomUUID());
   const input = el('input', { id, name: name || id, type, value, required, maxlength: maxLength, ...props });
-  return { input, node: el('label', { class: 'field', for: id }, el('span', {}, t(label)), input) };
+  return { input, node: el('label', { class: 'field', for: id }, el('span', { class: 'field-label' }, t(label)), el('span', { class: 'field-control' }, input)) };
 }
 export function select(label, name, options, selected) {
   const input = el('select', { id: name, name, 'aria-label': t(label) }, options.map(o => el('option', { value: o.value, ...(o.value === selected ? { selected: 'selected' } : {}) }, t(o.label))));
   return { input, node: el('label', { class: 'field', for: name }, el('span', {}, t(label)), input) };
 }
-export function empty(title, description, action) { return el('section', { class: 'empty-panel' }, el('span', { class: 'icon-well' }, icon('leaf')), el('h2', {}, t(title)), el('p', { class: 'muted' }, t(description)), action); }
+export function empty(title, description, action) { return el('section', { class: 'empty-panel' }, el('div', { class: 'empty-symbol', 'aria-hidden': 'true' }, icon('home')), el('div', { class: 'empty-copy' }, el('h2', {}, t(title)), description && el('p', { class: 'muted' }, t(description))), action && el('div', { class: 'empty-actions' }, action)); }
+export function pageHeader(title, description, actions, eyebrow) { return el('header', { class: 'page-head' }, el('div', { class: 'page-heading' }, eyebrow && el('p', { class: 'eyebrow' }, t(eyebrow)), el('h1', { tabindex: '-1' }, t(title)), description && el('p', { class: 'page-intro' }, t(description))), actions && el('div', { class: 'page-tools' }, actions)); }
+export function sectionHeader(title, action) { return el('div', { class: 'section-heading' }, el('h2', {}, t(title)), action); }
+export function loadingPanel(label = 'Loading…') { return el('section', { class: 'loading-panel', role: 'status', 'aria-busy': 'true' }, el('span', { class: 'loading-indicator', 'aria-hidden': 'true' }), el('p', {}, t(label))); }
 export function status(text, tone = 'neutral') { return el('span', { class: `status status-${tone}` }, t(text)); }
 export function modal(title, content, { confirmLabel = 'Save', onConfirm, danger = false, readOnly = false } = {}) {
   document.querySelectorAll('dialog[open]').forEach(d => d.close());

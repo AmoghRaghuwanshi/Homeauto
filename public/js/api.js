@@ -1,6 +1,7 @@
 export const Api = {
   mode: 'local',
   demo: null,
+  mutationsPaused: false,
   demoMarker: 'homeauto.demo.active.v1',
   startDemo(session, model) { if(this.mode!=='cloud'||!model?.request)throw new Error('Demo is available online');this.sessionVersion++;this.demo=model;try{sessionStorage.setItem(this.demoMarker,JSON.stringify({version:1,user:session.user.id,home:session.household_id}));}catch{} },
   restoreDemo(session) { try{const m=JSON.parse(sessionStorage.getItem(this.demoMarker)||'null');return m?.version===1&&m.user===session.user.id&&m.home===session.household_id;}catch{return false;} },
@@ -17,6 +18,7 @@ export const Api = {
   csrf: null,
   async request(path, { method = 'GET', body, signal, timeoutMs = 10000 } = {}) {
     if (!path.startsWith('/api/')) throw new Error('Same-origin API path required');
+    if (this.mutationsPaused && method !== 'GET' && !path.startsWith('/api/auth/')) throw Object.assign(new Error('Home transition in progress'), { code: 'HOME_SWITCH_IN_PROGRESS', status: 409 });
     if (this.demo && !path.startsWith('/api/auth/')) return this.demo.request(path,{method,body});
     const sessionVersion = this.sessionVersion; const started = performance.now(); const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? Math.max(1000, Math.min(25000, timeoutMs)) : 10000);
     const cancel = () => controller.abort();

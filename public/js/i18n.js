@@ -1,5 +1,8 @@
 import { preferences } from './preferences.js';
 const hi = {
+  'Control your home.': 'अपने घर को नियंत्रित करें।',
+  'Filters': 'फ़िल्टर',
+  'Changing home…': 'घर बदल रहा है…',
   "Set up your home": "अपना घर सेट करें",
   "Your account is ready. Connect your home hub, or explore a demo with simulated devices.": "आपका खाता तैयार है। अपना होम हब जोड़ें या काल्पनिक उपकरणों वाला डेमो देखें।",
   "Connect your gateway": "अपना गेटवे जोड़ें",
@@ -144,6 +147,7 @@ Object.assign(hi, {
 });
 export const t = value => preferences.language === 'hi' ? hi[value] || value : value;
 const errors = {
+  HOME_SWITCH_IN_PROGRESS: ['Wait for the home to finish changing, then try again.', 'घर बदलने तक प्रतीक्षा करें, फिर कोशिश करें।'],
   GATEWAY_SETUP_UNAVAILABLE: ['Gateway setup is being updated. Try again shortly.', 'गेटवे सेटअप अपडेट हो रहा है। थोड़ी देर बाद फिर कोशिश करें।'],
   GATEWAY_ALREADY_ENROLLED: ['A gateway is already registered. Check its connection before replacing anything.', 'गेटवे पहले से पंजीकृत है। कुछ बदलने से पहले उसका कनेक्शन जाँचें।'],
   DEMO_ACTION_UNAVAILABLE: ['This action is not available in the demo. Use your home hub for real hardware.', 'डेमो में यह कार्य उपलब्ध नहीं है। असली उपकरणों के लिए अपना होम हब उपयोग करें।'],
