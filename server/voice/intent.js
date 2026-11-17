@@ -1,18 +1,23 @@
 const { fail } = require('../lib/errors');
+const { wakePhrase } = require('../../public/js/assistant-language');
 function normalize(text) {
-  const digits = { one: '1', two: '2', three: '3', four: '4', एक: '1', दो: '2', तीन: '3', चार: '4', ek: '1', do: '2' };
+  const digits = { one: '1', two: '2', three: '3', four: '4', एक: '1', दो: '2', तीन: '3', चार: '4', वन: '1', टू: '2', थ्री: '3', फोर: '4', ek: '1', do: '2' };
+  // Explicit noun/spelling equivalents only; never guess an action or a missing number.
+  const forms = { लाइटें: 'लाइट', लाइट्स: 'लाइट', लाइटे: 'लाइट', लाईट: 'लाइट', लाईटे: 'लाइट', लाईटें: 'लाइट', लाईट्स: 'लाइट', बत्तियां: 'बत्ती', बत्तियाँ: 'बत्ती', बन्द: 'बंद', कमरे: 'कमरा', कम्रा: 'कमरा' };
   return text.normalize('NFC').toLowerCase().replace(/[०-९]/g, c => String(c.charCodeAt(0) - 0x966)).replace(/[’']/g, ' ').replace(/[^\p{L}\p{M}\p{N}\s-]/gu, ' ').replace(/-/g, ' ').replace(/\s+/g, ' ').trim()
-    .replace(/(room|light|lamp|कमरा|रूम|लाइट|बत्ती|kamra)\s+(one|two|three|four|एक|दो|तीन|चार|ek|do)(?=\s|$)/gu, (_, target, number) => target + ' ' + digits[number]);
+    .split(' ').map(word => Object.hasOwn(forms, word) ? forms[word] : word).join(' ')
+    .replace(/(room|light|lamp|कमरा|रूम|लाइट|बत्ती|kamra)\s+(one|two|three|four|एक|दो|तीन|चार|वन|टू|थ्री|फोर|ek|do)(?=\s|$)/gu, (_, target, number) => target + ' ' + digits[number]);
 }
 const phrase = (s, words) => words.some(w => (' ' + s + ' ').includes(' ' + w + ' '));
 function detectWakeWord(text) {
-  const s = normalize(text);
-  const match = s.match(/^(?:hey |हे )?(?:shrimaan|shreeman|shriman|श्रीमान)(?: ji| जी)?(?:\s+|$)/u);
-  return { found: !!match, command: match ? s.slice(match[0].length).trim() : s };
+  const result = wakePhrase(text);
+  return { found: result.found, command: normalize(result.command) };
 }
 function resolveCommand(input, devices, rooms, aliases = []) {
   if (typeof input !== 'string' || !input.trim() || input.length > 500) return { ok: false, reason: 'unsupported', choices: [] };
-  const s = detectWakeWord(input).command;
+  const s = detectWakeWord(input).command
+    .replace(/^(?:(?:(?:can|could|would) you|please|kindly|कृपया)\s+)+/u, '')
+    .replace(/\s+please$/u, '');
   const reject = (reason, choices = []) => ({ ok: false, reason, choices });
   if (phrase(s, ['tomorrow','later','after','before','when','then','until','if','कल','बाद','जब','agar','baad','kal']) && !/^check if\s/.test(s)) return reject('unsupported');
   if (phrase(s, ['not', 'don t', 'dont', 'never', 'मत', 'नहीं', 'नही', 'mat', 'nahi', 'nahin'])) return reject('negated');
@@ -65,6 +70,9 @@ function resolveCommand(input, devices, rooms, aliases = []) {
   }
   const grammar = new Set('turn switch set the a please light lights lamp lamps on off all every and status check if what is are sensor gas motion movement home house door gate front lock close secure unlock open room की का करो कर दो है क्या स्थिति चालू ऑन जलाओ जला बंद बुझाओ बुझा ऑफ दरवाजा दरवाज़ा गेट खोलो खोल अनलॉक लॉक ताला गैस मोशन हलचल घर सभी सब सारी सारे light band bandh chalu jala jalao bujhao karo kar ka ki ko hai kya haal darwaza darwaja kholo khol tala sab saari sabhi ghar'.split(' '));
   for (const word of ['लाइट','बत्ती','कमरा','रूम','kamra']) grammar.add(word);
+  for (const word of ['my', 'मेरी', 'मेरे', 'को', 'दीजिए']) grammar.add(word);
+  if (targetSource === 'explicit_room') for (const word of ['in', 'में']) grammar.add(word);
+  if (action === 'query') for (const word of ['of', 'locked', 'unlocked', 'closed', 'detected', 'normal', 'alert', 'reading', 'readings', 'level', 'value', 'रीडिंग', 'स्तर']) grammar.add(word);
   if (rest.trim().split(/\s+/).some(word => !grammar.has(word))) return reject('unsupported');
   return { ok: true, intent: { kind: action === 'query' ? 'query' : 'control', action, device_ids: targets, devices: targets, sensitive: action === 'unlock', target_source: targetSource, language: /[\u0900-\u097F]/u.test(input) ? /[a-z]/i.test(input) ? 'mixed' : 'hi' : 'en' } };
 }

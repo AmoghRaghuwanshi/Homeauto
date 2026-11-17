@@ -23,7 +23,7 @@ function coordinator(){
     if(p.endsWith('/command')){if(!this.demo)effects.realWrites++;return {command:{state:'observed'}};}throw Error('Unexpected path '+p);
   }};
   const scope={state,Api,pageLeaving:false,console,structuredClone,Map,Set,clearInterval,clearTimeout,setTimeout,crypto:require('node:crypto').webcrypto,
-    document:{querySelectorAll:()=>[]},app:{replaceChildren(){effects.retired++;}},el:()=>({}),loadingPanel:()=>({}),render(){},onUpdate(){},acceptSnapshot(s){state.snapshot=s;},connectState(){},navigation:{go(){}},createDemoHome:()=>model,t:s=>s,errorText:e=>e.code};
+    document:{querySelectorAll:()=>[],getElementById:()=>null},app:{replaceChildren(){effects.retired++;}},el:()=>({}),loadingPanel:()=>({}),render(){},onUpdate(){},acceptSnapshot(s){state.snapshot=s;},connectState(){},navigation:{go(){}},createDemoHome:()=>model,t:s=>s,errorText:e=>e.code};
   vm.createContext(scope);vm.runInContext('let realDemoSession=null,main,shellBuilt=true,assistantBuilt=true,knownAlerts=new Set(),initialAlerts=true;'+disconnect+'\n'+actual+'\nctx.voice={cancel(){}};ctx.notify=()=>{};this.coordinator={ctx,switchDemo};',scope);
   return {...scope.coordinator,state,Api,effects,setLeaving:value=>{scope.pageLeaving=value;},rejectSession:()=>rejectSession(Object.assign(Error('Synthetic timeout'),{code:'CONNECTION_LOST'})),resolveSession:()=>resolveSession(session),resolvePreference:()=>resolvePreference({version:1}),model};
 }

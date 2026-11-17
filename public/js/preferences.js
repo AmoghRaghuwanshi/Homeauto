@@ -5,9 +5,12 @@ export const themes = [
   { id: '04', name: 'Friendly Pastel', description: 'Gentle color for every room.', color: '#386771' },
 ];
 const keys = { theme: 'homeauto.theme.v1', language: 'homeauto.language.v1', largeText: 'homeauto.largeText.v1', largeControls: 'homeauto.largeControls.v1', reducedMotion: 'homeauto.reducedMotion.v1', strongOutlines: 'homeauto.strongOutlines.v1', wakeRequired: 'homeauto.wakeRequired.v1' };
+Object.assign(keys, { englishVoice: 'homeauto.englishVoice.v1', hindiVoice: 'homeauto.hindiVoice.v1', voiceVolume: 'homeauto.voiceVolume.v1' });
+const voiceChoice = value => typeof value === 'string' && value.length <= 1024 ? value : '';
+const voiceVolume = value => value !== null && value !== '' && Number.isFinite(Number(value)) ? Math.max(.1, Math.min(1, Number(value))) : 1;
 export function readPreferences() {
-  const prefs = { theme: '05', language: 'en', largeText: false, largeControls: false, reducedMotion: false, strongOutlines: false, wakeRequired: false, persistent: true };
-  try { for (const [key, storage] of Object.entries(keys)) { const value = localStorage.getItem(storage); if (key === 'theme') prefs.theme = themes.some(t => t.id === value) ? value : '05'; else if (key === 'language') prefs.language = value === 'hi' ? 'hi' : 'en'; else prefs[key] = value === 'true'; } } catch { prefs.persistent = false; }
+  const prefs = { theme: '05', language: 'en', largeText: false, largeControls: false, reducedMotion: false, strongOutlines: false, wakeRequired: false, englishVoice: '', hindiVoice: '', voiceVolume: 1, persistent: true };
+  try { for (const [key, storage] of Object.entries(keys)) { const value = localStorage.getItem(storage); if (key === 'theme') prefs.theme = themes.some(t => t.id === value) ? value : '05'; else if (key === 'language') prefs.language = value === 'hi' ? 'hi' : 'en'; else if (key === 'englishVoice' || key === 'hindiVoice') prefs[key] = voiceChoice(value); else if (key === 'voiceVolume') prefs[key] = voiceVolume(value); else prefs[key] = value === 'true'; } } catch { prefs.persistent = false; }
   return prefs;
 }
 export let preferences = readPreferences();
@@ -15,6 +18,9 @@ export function applyPreferences(patch = {}, save = true) {
   preferences = { ...preferences, ...patch };
   if (!themes.some(t => t.id === preferences.theme)) preferences.theme = '05';
   if (!['en','hi'].includes(preferences.language)) preferences.language = 'en';
+  preferences.englishVoice = voiceChoice(preferences.englishVoice);
+  preferences.hindiVoice = voiceChoice(preferences.hindiVoice);
+  preferences.voiceVolume = voiceVolume(preferences.voiceVolume);
   document.documentElement.dataset.theme = preferences.theme;
   document.documentElement.lang = preferences.language === 'hi' ? 'hi' : 'en';
   for (const key of ['largeText', 'largeControls', 'reducedMotion', 'strongOutlines']) document.documentElement.dataset[key] = String(!!preferences[key]);

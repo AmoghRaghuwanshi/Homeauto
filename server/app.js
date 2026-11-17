@@ -29,7 +29,7 @@ function createApp({ repo, home, sessions, assistant, speech, config = {}, cloud
   });
   app.use(express.json({ limit: '16kb', strict: true }));
   app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
-  app.get('/api/runtime', (req, res) => res.json({ mode: 'local', transport: 'websocket' }));
+  app.get('/api/runtime', (req, res) => res.json({ mode: 'local', transport: 'websocket', simulation: !!home.simulation, device_transport: home.simulation ? 'simulated' : 'mqtt' }));
   const asyncRoute = fn => (req, res, next) => Promise.resolve().then(() => fn(req, res)).catch(next);
   const sessionDTO = s => ({ user: s.user, csrf_token: s.csrf_token, expires_at: new Date(s.expires_at).toISOString(), reauth_until: s.reauth_at ? new Date(s.reauth_at + 300000).toISOString() : null });
   function mutation(req) { if (!req.headers.origin) fail('ORIGIN_REQUIRED', 403); if (!req.is('application/json')) fail('JSON_REQUIRED', 415); }
@@ -136,24 +136,39 @@ function createApp({ repo, home, sessions, assistant, speech, config = {}, cloud
     if (action === 'acknowledge') authorize(req.actor, 'control'); if (!repo.one('SELECT id FROM alerts WHERE id=?', [req.params.id])) fail('NOT_FOUND', 404);
     repo.transaction(({ run }) => { run('INSERT OR IGNORE INTO alert_receipts(alert_id,user_id) VALUES(?,?)', [req.params.id, req.actor.user_id]); run(`UPDATE alert_receipts SET ${action === 'read' ? 'read_at' : 'acknowledged_at'}=COALESCE(${action === 'read' ? 'read_at' : 'acknowledged_at'},?) WHERE alert_id=? AND user_id=?`, [new Date(home.now()).toISOString(), req.params.id, req.actor.user_id]); }); home.emitChange(); res.json({ receipt: repo.one('SELECT read_at,acknowledged_at FROM alert_receipts WHERE alert_id=? AND user_id=?', [req.params.id, req.actor.user_id]) });
   });
-  app.post('/api/assistant/interpret', (req, res) => { fields(req.body, ['text', 'language'], ['text']); if (req.body.language && !['auto', 'hi', 'en'].includes(req.body.language)) fail('VALIDATION_ERROR'); res.json(assistant.interpret(text(req.body.text, 500), req.actor)); });
+  app.post('/api/assistant/interpret', (req, res) => { fields(req.body, ['text', 'language'], ['text']); if (req.body.language && !['auto', 'hi', 'en'].includes(req.body.language)) fail('VALIDATION_ERROR'); res.json(assistant.interpret(text(req.body.text, 500), req.actor, req.body.language || 'auto')); });
   app.post('/api/assistant/execute', (req, res) => { fields(req.body, ['intent_id', 'idempotency_key'], ['intent_id', 'idempotency_key']); const result = assistant.execute(req.body.intent_id, req.body.idempotency_key, req.actor); res.status(result.answer ? 200 : 202).json(result); });
   app.post('/api/assistant/voice-tickets', (req, res) => res.status(201).json(speech.ticket(req.actor)));
   app.post('/api/assistant/speech', asyncRoute(async (req, res) => {
-    fields(req.body, ['result_id', 'test_phrase', 'language', 'voice_id'], ['language']); if (!['en', 'hi'].includes(req.body.language) || !!req.body.result_id === !!req.body.test_phrase || req.body.test_phrase && req.body.test_phrase !== 'voice_check') fail('VALIDATION_ERROR');
-    const value = req.body.test_phrase ? req.body.language === 'hi' ? 'नमस्ते। मैं श्रीमान हूँ। आपकी आवाज़ यहीं घर पर संसाधित होती है।' : 'Hello. I am Shrimaan. Your voice is processed here at home.' : assistant.speechText(req.body.result_id, req.actor, req.body.language);
-    res.status(202).json(await speech.synthesize(value, req.body.language, req.actor));
+    fields(req.body, ['result_id', 'test_phrase', 'message_code', 'language', 'voice_id'], ['language']);
+    const prompts = {
+      WAKE_PHRASE_REQUIRED: ['Start with Shrimaan, or turn off Require Shrimaan wake phrase in Voice settings.', 'पहले श्रीमान कहें, या आवाज़ की सेटिंग में श्रीमान संबोधन की शर्त बंद करें।'],
+      INTENT_AMBIGUOUS: ['Which light do you mean? Say turn on light one, or name a room.', 'कौन सी लाइट? लाइट एक चालू करो कहें, या कमरे का नाम बताएँ।'],
+      RECOGNITION_UNCLEAR: ['I could not match that request. Try saying turn on light one.', 'बात समझ नहीं आई। लाइट एक चालू करो कहकर कोशिश करें।'],
+      RECOGNITION_AMBIGUOUS: ['The request was unclear. Please say one device and one action.', 'अनुरोध स्पष्ट नहीं है। एक उपकरण और एक कार्य बताएँ।'],
+      MICROPHONE_NO_SPEECH: ['No speech was detected. Check your microphone and try again.', 'आवाज़ नहीं मिली। माइक्रोफ़ोन जाँचें और फिर कोशिश करें।'],
+      VOICE_REQUEST_TOO_LONG: ['Try one short request at a time. No command was sent.', 'एक बार में एक छोटा अनुरोध बोलें। कोई कमांड नहीं भेजी गई।'],
+      INTENT_UNSUPPORTED: ['I could not use that home request. Try one device and one action. No command was sent.', 'घर के इस अनुरोध को समझ नहीं पाया। एक उपकरण और एक कार्य बताएँ। कोई कमांड नहीं भेजी गई।'],
+      INTENT_UNKNOWN_TARGET: ['I could not find that device. Check its name or number. No command was sent.', 'वह उपकरण नहीं मिला। उसका नाम या नंबर जाँचें। कोई कमांड नहीं भेजी गई।'],
+      INTENT_NEGATED: ['I did not send a command because you asked not to make that change.', 'आपने बदलाव के लिए मना किया है, इसलिए कोई कमांड नहीं भेजी गई।'],
+      INTENT_CONFLICTING: ['I heard conflicting actions. Please say one device and one action. No command was sent.', 'विरोधी कार्य मिले। एक उपकरण और एक कार्य बताएँ। कोई कमांड नहीं भेजी गई।'],
+      SENSITIVE_ACTION_REQUIRES_UI: ['Open Security to review and confirm unlocking the door.', 'दरवाज़ा अनलॉक करने की जाँच और पुष्टि के लिए सुरक्षा पेज खोलें।'],
+    };
+    if (!['en', 'hi'].includes(req.body.language) || [req.body.result_id, req.body.test_phrase, req.body.message_code].filter(v => v !== undefined).length !== 1 || req.body.test_phrase !== undefined && req.body.test_phrase !== 'voice_check' || req.body.message_code !== undefined && !Object.hasOwn(prompts, req.body.message_code) || req.body.result_id !== undefined && typeof req.body.result_id !== 'string') fail('VALIDATION_ERROR');
+    const browser = speech.readiness().provider === 'browser';
+    const value = req.body.message_code ? prompts[req.body.message_code][req.body.language === 'hi' ? 1 : 0] : req.body.test_phrase ? req.body.language === 'hi' ? browser ? 'नमस्ते। मैं श्रीमान हूँ। आप मुझसे घर के उपकरणों के बारे में पूछ सकते हैं।' : 'नमस्ते। मैं श्रीमान हूँ। आपकी आवाज़ यहीं घर पर संसाधित होती है।' : browser ? 'Hello. I am Shrimaan. You can ask me about your home devices.' : 'Hello. I am Shrimaan. Your voice is processed here at home.' : assistant.speechText(req.body.result_id, req.actor, req.body.language);
+    res.status(202).json(await speech.synthesize(value, req.body.language, req.actor, { cache: !!req.body.message_code || !!req.body.test_phrase || assistant.cacheableSpeech(req.body.result_id, req.actor) }));
   }));
   app.get('/api/assistant/speech/:id', (req, res) => res.json(speech.job(req.params.id, req.actor)));
   app.get('/api/assistant/audio/:id', (req, res) => { res.type('wav').send(speech.audio(req.params.id, req.actor)); });
   app.get('/api/ai/models', (req, res) => { authorize(req.actor, 'owner'); res.json({ assets: speech.assets() }); });
   app.post('/api/ai/models/:id/activate', asyncRoute(async (req, res) => { authorize(req.actor, 'sensitive', home.now()); res.json(await speech.activate(req.params.id)); }));
-  app.get('/api/system', (req, res) => { authorize(req.actor, 'owner'); res.json({ version: require('./package.json').version, broker: { connected: home.connected, enabled: !!config.MQTT_ENABLED }, boards: home.snapshot(req.actor).espBoards, database: { healthy: repo.healthy(), schema_version: 5 }, speech: speech.readiness(), door_enabled: home.allowDoor, simulation: home.simulation, cloud_sync: cloudStatus(), resources: { scope: 'local_hub', uptime_seconds: Math.floor(process.uptime()), rss_bytes: process.memoryUsage().rss } }); });
+  app.get('/api/system', (req, res) => { authorize(req.actor, 'owner'); res.json({ version: require('./package.json').version, broker: { connected: home.connected, enabled: !!config.MQTT_ENABLED }, boards: home.snapshot(req.actor).espBoards, database: { healthy: repo.healthy(), schema_version: 5 }, speech: { ...speech.readiness(), last_recognition: speech.recognitionMetrics?.() || null }, door_enabled: home.allowDoor, simulation: home.simulation, cloud_sync: cloudStatus(), resources: { scope: 'local_hub', uptime_seconds: Math.floor(process.uptime()), rss_bytes: process.memoryUsage().rss } }); });
   app.use('/api', (req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'API route not found', retryable: false }, request_id: req.requestId }));
   // Available only in the explicit in-memory simulator, never production.
   if (home.simulation) app.get('/__qa/axe.js', (req, res) => res.sendFile(require.resolve('axe-core')));
-  app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: 0, index: false }));
-  app.get('*', (req, res) => { if (path.extname(req.path)) return res.sendStatus(404); res.sendFile(path.join(__dirname, '..', 'public', 'index.html')); });
+  app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: 0, index: false, setHeaders: (res, file) => { if (/\.(?:html|js)$/.test(file)) res.setHeader('Cache-Control', 'no-store'); } }));
+  app.get('*', (req, res) => { if (path.extname(req.path)) return res.sendStatus(404); res.setHeader('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, '..', 'public', 'index.html')); });
   app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
     const known = error instanceof DomainError; const status = known ? error.status : error.type === 'entity.too.large' ? 413 : error instanceof SyntaxError ? 400 : 500;

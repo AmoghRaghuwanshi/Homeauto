@@ -1,5 +1,25 @@
 # Unslop content audit
 
+## Hindi/chat/wake follow-up — 2026-11-15
+
+Manually audited the new English labels and Hindi counterparts using the previously loaded audit-first preservation rules. “Enable wake-word listening” describes an opt-in idle listener; manual microphone controls no longer tell users to say a name. The UI distinguishes the saved preference from active listening after reload, shows a global Stop control and discloses the browser provider's possible access to ambient audio. Live chat copy states its actual refresh/home-switch lifetime. Hindi response selection uses actual words rather than misleading decoder-language labels. No new automated prose scan or real-microphone quality claim is made. Security review, no-command behavior and matching-language output remain protected meanings.
+
+## Browser conversation follow-up — 2026-11-15
+
+Manually audited the changed browser-voice labels, guidance and error messages using the previously loaded audit-first preservation rules. Removed inaccurate claims that microphone audio stays on the hub, model setup is required, or browser speech is guaranteed offline. Automatic listening now explicitly follows app language; automatic reply language follows recognized text. Missing Hindi voices preserve the written Hindi answer and explain recovery rather than silently speaking English. Start/End conversation describe actual repeated-turn behavior. Playback guidance now points to Replay instead of a removed WAV player, and no-speech guidance does not reference a microphone meter that browser recognition does not expose.
+
+English/Hindi device warnings, uncertain status and Security confirmation remain intact. Hindi was manually checked for meaning; the old English scanner statistics below apply only to that earlier fixed-reply inventory, not this follow-up. No new automated language scan or voice-quality ranking is claimed. Functional and responsive evidence is in [browser voice verification](../verification/BROWSER_VOICE_ASSISTANT.md).
+
+## Offline scoped assistant — 2026-11-15
+
+Loaded the installed writing skill 2.3.0, core contract, cleanup/rewrite routing, preservation reference and Warm Human preset. Audited the English dialogue and approved failure prompts as an inventory of 18 independent messages; Hindi was reviewed separately by meaning and operational scope. No English scanner result was applied to Hindi. This audit evaluates copy, not model pronunciation or native-speaker acceptance.
+
+The phrase scanner found **0 hard / 1 soft** findings. The soft `anti_slop_register` span crossed two separate messages: “No command was sent” followed by the next message's “I could not find that device.” It does not represent one spoken paragraph. Protected the action outcome and device feedback. Structure flagged uniform short sentences and repeated openings; silhouette flagged aggregate document shape; readability recorded grade 2.1, short-sentence runs and repeated device terms. These scanners exited 1 with advisory findings, not execution failures. The catalog is not continuous prose, so combining unrelated warnings or removing necessary device terms was rejected. No reconstruction was justified.
+
+Preserved uncertainty, no-command statements, explicit device selection and the Security confirmation boundary. Capability replies depend on actual configuration and permissions; general questions do not imply cloud knowledge or new device capabilities. The new physical door query includes the lock-position limitation, and gas values remain controller estimates. English/Hindi native synthetic speech and playback were tested separately; this is not proof of naturalness for every listener or accent.
+
+Inputs and all four actual scanner reports are in `D:/homeauto-audit-tools/offline-dialogue-20261115/{en-copy.txt,hi-copy.txt,banned_phrase_scan.json,structure_scan.json,silhouette_scan.json,readability_metrics.json}`. No scanner code/output was added to the runtime, and no content was sent to another service for cleanup.
+
 ## Signup failure handling — 2026-11-08
 
 Contextual audit confirmed that “The hub didn't respond. Check the device's status before trying again.” was misleading on the cloud account form. That message remains protected for device operations; auth screens now use account-specific recovery. After a lost or malformed signup response, “Couldn't confirm account creation. Try signing in with these details before creating another account.” preserves uncertainty because PostgreSQL may already have committed. Pending text and inline validation state the actual action/constraint. No failed-response path claims that the account was created or that a device action failed. Hindi was reviewed manually; native-speaker acceptance remains open. This is a targeted contextual correction, not a new automated prose-scanner score.

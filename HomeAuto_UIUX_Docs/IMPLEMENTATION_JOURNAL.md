@@ -1,5 +1,8 @@
 # HomeAuto — implementation journal
 
+> Current user directive2026-11-14: all speech/conversation AI runs on the ESP32-connected home hub; remote website clients use that active hub without local model installation. Remote voice/control requires current hub connectivity. See [hub AI execution plan](../docs/cloud/HUB_AI_EXECUTION_PLAN.md), [local launcher plan](../docs/LOCAL_AI_IMPLEMENTATION_PLAN.md) and [latest development checkpoint](../docs/DEVELOPMENT_STATE.md). Remote audio relay remains planned; the English/Hindi local simulation is implemented. Earlier dated tasks/entries below are historical, not evidence the relay is ready.
+
+
 Revision 4 • 2026-11-05 • local development release 2.0.0
 
 The user authorized direct implementation, dependency/model provisioning and

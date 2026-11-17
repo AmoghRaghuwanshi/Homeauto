@@ -13,8 +13,8 @@ async function main() {
     for (let i=0;i<corpus.length;i++) {
       const [language,text,action,ids] = corpus[i]; const wav=path.join(folder,'corpus-'+i+'.wav'); if (!fs.existsSync(wav)) { const {job_id}=await speech.synthesize(text,language,actor); while(speech.job(job_id,actor).state==='queued') await new Promise(r=>setTimeout(r,100)); fs.writeFileSync(wav,speech.audio(job_id,actor)); }
       const pcm=execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-i',wav,'-f','s16le','-ar','16000','-ac','1','-']);
-      const vosk=await speech.run('stt',{pcm:pcm.toString('base64'),language}); const whisper=await transcribeWhisper(pcm,language,config);
-      for(const [provider,output] of [['vosk',vosk],['whisper-' + profile + '-q5_1',whisper]]) {
+      const active=await speech.run('stt',{pcm:pcm.toString('base64'),language}); const whisper=await transcribeWhisper(pcm,language,config);
+      for(const [provider,output] of [[active.provider || 'active-stt',active],['whisper-' + profile + '-q5_1',whisper]]) {
         const transcript=output.candidates[0]?.text||'';const parsed=resolveCommand(transcript,repo.getDevices(),home.rooms()); const exact=action===null?!parsed.ok:parsed.ok&&parsed.intent.action===action&&JSON.stringify(parsed.intent.device_ids)===JSON.stringify(ids);
         const row={index:i,language,text,provider,transcript,action_expected:action,exact_intent:exact,parsed:parsed.ok?parsed.intent:null,duration_ms:output.duration_ms,memory_bytes:output.memory_bytes||null};results.results.push(row);console.log(JSON.stringify(row));
       }

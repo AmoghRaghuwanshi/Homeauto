@@ -11,10 +11,12 @@ Vosk / Apache-2.0; Playwright / Apache-2.0 (development only);
 axe-core / MPL-2.0 (development only). Transitive notices remain in each package.
 
 Locally provisioned speech components are outside the served source tree:
-Vosk small English/Hindi models / Apache-2.0 (model distribution notices apply).
+Whisper medium multilingual model / MIT; faster-whisper adapter / MIT;
+CTranslate2 / MIT. Pinned model source and digests: server/voice/whisper-manifest.json.
+Vosk models are the retired baseline, no longer used by the active speech service.
 Kokoro-82M model weights / Apache-2.0; kokoro-onnx adapter / MIT;
 ONNX Runtime / MIT; eSpeak NG phonemizer / GPL-3.0-or-later.
-whisper.cpp / MIT; Whisper models / MIT (benchmark tools only).
+whisper.cpp / MIT (legacy benchmark tools only).
 See HomeAuto_UIUX_Docs/OFFLINE_AI.md and the local manifests for provenance.
 
 This is a local development installation, not a redistributable speech bundle.

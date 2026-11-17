@@ -1,5 +1,8 @@
 # HomeAuto — implementation architecture, revision 3
 
+> Architecture revision2026-11-14: AI runs on the ESP32-connected home hub. Remote clients will relay voice/conversations to that hub and receive its responses; the hub must be active and connected for remote voice and control. Models are installed on the hub only. See [the revised execution contract](../docs/cloud/HUB_AI_EXECUTION_PLAN.md). The implementation descriptions below remain current/historical evidence as dated; remote audio forwarding is not implemented yet.
+
+
 > **Active implementation revision 4 — 2026-11-05.** Active modules are server/lifecycle.js, app.js, realtime.js, db/repository.js, services/home.js and isolated voice workers. Schema v5 consolidates planned M01–M05; synchronous serialized transactions replace a queued async writer. Full authoritative WebSocket snapshots replace delta events; QoS 0 prevents reconnect command retries. See RUNTIME_CONTRACTS.md for all recorded deviations. Earlier “current/planned/no implementation” statements below refer to the preserved revision-3 audit/specification, not the active runtime. The full revision-3 originals are in history/revision-3.
 
 

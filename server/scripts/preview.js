@@ -18,6 +18,10 @@ async function createPreview({ port = 0, voice = false, loginRequired = false } 
     sessions.readRequest = () => ({ token, session: sessions.get(token) });
   }
   const home = new Home(repo, { simulation: true, allowDoor: true });
+  if (voice) {
+    const { version, ...settings } = home.preferences({ user_id: user.id });
+    repo.write('INSERT INTO user_preferences(user_id,value_json,version) VALUES(?,?,?)', [user.id, JSON.stringify({ ...settings, input_language: 'auto', reply_language: 'auto', spoken_replies: true }), 1]);
+  }
   home.publisher = (topic, action, options, callback) => { callback(null); const target = action === 'lock' ? 'locked' : action === 'unlock' ? 'unlocked' : action; setTimeout(() => { if (action !== 'deny') home.ingest(topic.replace('/command', '/status'), Buffer.from(target)); }, 500).unref(); };
   home.setConnected(true);
   for (const [id, value] of [['1', 'on'], ['2', 'off'], ['3', 'off'], ['4', 'on']]) home.ingest(`home/light/${id}/status`, Buffer.from(value));
@@ -25,7 +29,16 @@ async function createPreview({ port = 0, voice = false, loginRequired = false } 
   const config = { ...loadConfig({ ...process.env, HOMEAUTO_CLOUD_SYNC_ENABLED: '0', HOMEAUTO_GATEWAY_ENABLED: '0' }), HOST: '127.0.0.1', PORT: port, KEY_PATH: '', CERT_PATH: '', MQTT_ENABLED: false, VOICE_ENABLED: voice, CLOUD_SYNC: null, GATEWAY: null };
   const runtime = await startRuntime(config, { repo, home, sessions, broker: { close: async () => {} } });
   // This heartbeat is explicitly an isolated simulator; no TCP/MQTT device link.
-  const timer = setInterval(() => { home.ingest('home/esp32/lights/online', Buffer.from('true')); home.ingest('home/esp32/door/online', Buffer.from('true')); }, 25000); timer.unref();
+  const timer = setInterval(() => {
+    for (const id of ['light-1','light-2','light-3','light-4','door-1']) {
+      const current = home.observations.get(id)?.status;
+      if (current) home.ingest('home/' + id.replace('-', '/') + '/status', Buffer.from(current));
+    }
+    const gas = home.device('sensor-gas')?.latest;
+    if (gas) home.ingest('home/sensor/gas/data', Buffer.from(JSON.stringify({ raw: gas.raw, gas_ppm: gas.gas_ppm, alert: gas.alert })));
+    const motion = home.observations.get('sensor-motion')?.status;
+    if (motion) home.ingest('home/sensor/motion/data', Buffer.from(JSON.stringify({ motion: motion === 'detected' })));
+  }, 5000); timer.unref();
   const stop = runtime.stop; runtime.stop = async () => { clearInterval(timer); await stop(); };
   return { runtime, credentials, url: 'http://127.0.0.1:' + runtime.server.address().port };
 }

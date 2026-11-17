@@ -1,5 +1,10 @@
 # HomeAuto — canonical implementation tracker
 
+> Browser voice follow-up, 2026-11-15: [x] English/Hindi selectors and local previews, saved per-browser choices/volume, delayed voice inventory updates, same-language fallback and single Stop speech control. ElevenLabs is deferred by the user. 261 regression tests passed; isolated browser acceptance and native Chrome inventory are recorded in [browser voice verification](../docs/verification/BROWSER_VOICE_ASSISTANT.md). Human listening/microphone and physical release gates remain open.
+
+> Current user directive2026-11-14: all speech/conversation AI runs on the ESP32-connected home hub; remote website clients use that active hub without local model installation. Remote voice/control requires current hub connectivity. See [hub AI execution plan](../docs/cloud/HUB_AI_EXECUTION_PLAN.md), [local launcher plan](../docs/LOCAL_AI_IMPLEMENTATION_PLAN.md) and [latest development checkpoint](../docs/DEVELOPMENT_STATE.md). Remote audio relay remains planned; the English/Hindi local simulation is implemented. Earlier dated tasks/entries below are historical, not evidence the relay is ready.
+
+
 Revision 4, 2026-11-05. Direct implementation is authorized; no model handoff. Original task definitions/dependencies/acceptance are preserved in history/revision-3/TASKS.md. This tracker records actual progress against those gates. Code and isolated verification do not establish household release readiness.
 
 Status: [x] implemented and verified for the stated software scope; [~] code exists but acceptance is incomplete; [ ] blocked/pending external or release validation. See IMPLEMENTATION_JOURNAL.md for exact changed paths/tests and RUNTIME_CONTRACTS.md for accepted deviations.

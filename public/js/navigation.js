@@ -18,7 +18,7 @@ const pages = {
   '/settings/about': ['About', '/settings', 'settings'],
   '/settings/devices': ['Devices', '/settings', 'settings'],
   '/settings/advanced': ['Advanced', '/settings', 'settings'],
-  '/settings/advanced/ai': ['Local AI', '/settings/advanced', 'settings'],
+  '/settings/advanced/ai': ['Browser voice', '/settings/advanced', 'settings'],
 };
 export function routeInfo(path, snapshot = {}) {
   const pathname = path.split('?')[0];

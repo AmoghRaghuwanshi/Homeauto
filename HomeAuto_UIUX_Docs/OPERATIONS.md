@@ -1,5 +1,8 @@
 # HomeAuto — local operator guide
 
+> Architecture revision2026-11-14: AI runs on the ESP32-connected home hub. Remote clients will relay voice/conversations to that hub and receive its responses; the hub must be active and connected for remote voice and control. Models are installed on the hub only. See [the revised execution contract](../docs/cloud/HUB_AI_EXECUTION_PLAN.md). The implementation descriptions below remain current/historical evidence as dated; remote audio forwarding is not implemented yet.
+
+
 Active implementation revision 4, 2026-11-05. No cloud account is needed. Run
 commands from `D:\homeauto-main\server` unless stated otherwise. Stop the hub
 before identity, database or restore operations. The single-writer lock prevents

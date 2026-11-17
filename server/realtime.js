@@ -1,5 +1,7 @@
 const { WebSocketServer } = require('ws');
 const { uuid } = require('./lib/errors');
+const { detectWakeWord } = require('./voice/intent');
+const { inputLanguage } = require('../public/js/assistant-language');
 function heartbeatClients(sockets, sessions, home) {
   for (const ws of sockets) {
     try { if (!ws.alive || !sessions.get(ws.token)) { ws.terminate(); continue; } ws.alive = false; ws.ping(); }
@@ -36,23 +38,39 @@ function attachRealtime(server, { app, home, sessions, speech, assistant }) {
     ws.on('message', async (data, isBinary) => {
       try {
         const actor = sessions.get(ws.token); if (!actor) throw new Error('LOGIN_REQUIRED');
-        if (isBinary) { if (!utterance || ending || cancelled || data.length > 3200 || data.length % 2 || total + data.length > 640000) throw new Error('INVALID_AUDIO'); total += data.length; buffer.push(Buffer.from(data)); return; }
+        if (isBinary) { if (ws.browserSpeech || !utterance || ending || cancelled || data.length > 3200 || data.length % 2 || total + data.length > 640000) throw new Error('INVALID_AUDIO'); total += data.length; buffer.push(Buffer.from(data)); return; }
         const msg = JSON.parse(data.toString());
         if (msg.type === 'start') {
-          if (utterance || capturing || !uuid(msg.utterance_id) || msg.format !== 'pcm_s16le' || msg.sample_rate !== 16000 || msg.channels !== 1 || !['auto', 'en', 'hi'].includes(msg.language)) throw new Error('INVALID_START');
+          const browser = speech.readiness().provider === 'browser';
+          if (utterance || capturing || !uuid(msg.utterance_id) || !['auto', 'en', 'hi'].includes(msg.language) ||
+            (browser ? msg.format !== 'browser_text' || msg.schema_version !== 1 : msg.format !== 'pcm_s16le' || msg.sample_rate !== 16000 || msg.channels !== 1)) throw new Error('INVALID_START');
           speech.consume(msg.ticket, actor); capturing = ws; utterance = msg.utterance_id; ws.language = msg.language; ws.wakeRequired = msg.wake_required === true;
+          ws.browserSpeech = browser;
           clearTimeout(handshake); send(ws, { type: 'voice_ready', utterance_id: utterance });
         } else if (msg.type === 'cancel' && msg.utterance_id === utterance) { reset(); ws.close(); }
+        else if (msg.type === 'transcript' && ws.browserSpeech && msg.utterance_id === utterance && !ending && !cancelled) {
+          if (Object.keys(msg).some(key => !['type', 'utterance_id', 'text'].includes(key)) || typeof msg.text !== 'string' || !msg.text.trim() || msg.text.length > 500) throw new Error('INVALID_TRANSCRIPT');
+          ending = true; clearTimeout(limit); if (capturing === ws) capturing = null;
+          const language = ws.detectedLanguage = inputLanguage(msg.text, ws.language);
+          send(ws, { type: 'transcript', utterance_id: utterance, text: msg.text, lang: language });
+          if (ws.wakeRequired && !detectWakeWord(msg.text).found) throw Object.assign(new Error('WAKE_PHRASE_REQUIRED'), { fields: { language } });
+          const parsed = assistant.interpret(msg.text, actor, language);
+          send(ws, { type: 'intent', utterance_id: utterance, ...parsed });
+          ws.close(1000);
+        }
         else if (msg.type === 'end' && msg.utterance_id === utterance && !ending && !cancelled) {
+          if (ws.browserSpeech) throw new Error('INVALID_CONTROL');
           ending = true; clearTimeout(limit); if (total < 6400) throw new Error('NO_SPEECH');
           const pcm = Buffer.concat(buffer); buffer = []; if (capturing === ws) capturing = null;
-          const result = await speech.transcribe(pcm, ws.language, ws.wakeRequired);
+          const result = await speech.transcribe(pcm, ws.language, ws.wakeRequired, stage => {
+            if (!cancelled && ws.readyState === 1 && sessions.get(ws.token)) send(ws, { type: 'voice_progress', utterance_id: utterance, stage });
+          });
           if (cancelled || ws.readyState !== 1 || !sessions.get(ws.token)) return;
-          const parsed = assistant.interpret(result.text, actor);
           send(ws, { type: 'transcript', utterance_id: utterance, text: result.text, lang: result.lang });
+          const parsed = assistant.interpret(result.text, actor, result.lang);
           send(ws, { type: 'intent', utterance_id: utterance, ...parsed });
         } else throw new Error('INVALID_CONTROL');
-      } catch (error) { send(ws, { type: 'voice_error', utterance_id: utterance, code: error.code || error.message || 'VOICE_ERROR', retryable: true }); reset(); ws.close(1008); }
+      } catch (error) { send(ws, { type: 'voice_error', utterance_id: utterance, code: error.code || error.message || 'VOICE_ERROR', retryable: true, ...(['en','hi'].includes(error.fields?.language || ws.detectedLanguage) ? { language: error.fields?.language || ws.detectedLanguage } : {}), ...(error.fields?.transcripts ? { transcripts: error.fields.transcripts } : {}) }); reset(); ws.close(1008); }
     });
     ws.on('close', () => { reset(); clearTimeout(limit); clearTimeout(handshake); });
   });

@@ -1,5 +1,12 @@
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('crypto');
 const {createRepository}=require('../db/repository');const {Home}=require('../services/home');const {Assistant}=require('../services/assistant');const {Sessions}=require('../auth/sessions');
+test('demo speech is concise, labeled simulated and follows fresh reports in both languages',async t=>{
+ const r=await createRepository();t.after(()=>r.close());const h=new Home(r,{simulation:true,publisher:()=>assert.fail('An already reported state must not publish')});h.setConnected(true);h.ingest('home/light/1/status',Buffer.from('off'));
+ const a=new Assistant(h),actor={user_id:'demo',token_hash:'synthetic',role:'owner'};const p=a.interpret('light 1 off',actor),result=a.execute(p.intent_id,crypto.randomUUID(),actor);
+ assert.equal(a.speechText(result.result_id,actor,'en'),'Demo: Light 1: off.');assert.equal(a.speechText(result.result_id,actor,'hi'),'डेमो: Light 1: बंद।');
+ h.ingest('home/light/1/status',Buffer.from('on'));assert.equal(a.speechText(result.result_id,actor,'en'),'Demo: Light 1: on.');
+ h.setConnected(false);assert.match(a.speechText(result.result_id,actor,'en'),/status unavailable/);
+});
 test('AUD-004 questions are read-only; incomplete/future commands publish nothing',async t=>{
  const repo=await createRepository();t.after(()=>repo.close());let sends=0;const home=new Home(repo,{simulation:true,publisher:()=>sends++});const assistant=new Assistant(home),actor={user_id:'audit',token_hash:'test',role:'owner'};
  for(const text of ['Is light 1 on?','Check if light 2 is off','क्या लाइट 1 बंद है']){const p=assistant.interpret(text,actor);assert.equal(p.intent.kind,'query',text);assistant.execute(p.intent_id,crypto.randomUUID(),actor);}

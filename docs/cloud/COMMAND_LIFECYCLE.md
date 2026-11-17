@@ -1,5 +1,8 @@
 # Cloud light command lifecycle
 
+> Architecture revision2026-11-14: AI runs on the ESP32-connected home hub. Remote clients will relay voice/conversations to that hub and receive its responses; the hub must be active and connected for remote voice and control. Models are installed on the hub only. See [the revised execution contract](HUB_AI_EXECUTION_PLAN.md). The implementation descriptions below remain current/historical evidence as dated; remote audio forwarding is not implemented yet.
+
+
 Only on/off lighting is implemented remotely. Toggle input is resolved once to an absolute action against a fresh report. Remote door requests always fail, sensors remain read-only, and both cloud and gateway light gates default OFF. A simulated publication or ESP32 status is never physical-actuation verification.
 
 | State | Meaning |

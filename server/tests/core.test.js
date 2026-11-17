@@ -8,6 +8,15 @@ const { createRepository } = require('../db/repository');
 const { Home } = require('../services/home');
 const { Sessions, authorize, hash } = require('../auth/sessions');
 const { resolveCommand, detectWakeWord } = require('../voice/intent');
+test('voice recognition distinguishes missing light target from unintelligible speech in Automatic',async t=>{
+ const repo=await createRepository();t.after(()=>repo.close());const home=new Home(repo);const {Assistant}=require('../services/assistant');const {SpeechService}=require('../voice/speech-service');const speech=new SpeechService(home,new Assistant(home));t.after(()=>speech.close());
+ speech.run=async()=>({candidates:[{lang:'en',text:'turn on the light'},{lang:'hi',text:'टन ऑन'}]});
+ await assert.rejects(speech.transcribe(Buffer.alloc(6400),'auto'),e=>e.code==='INTENT_AMBIGUOUS'&&e.fields.transcripts[0].text==='turn on the light');
+ speech.run=async()=>({candidates:[{lang:'en',text:'turn on the light'},{lang:'hi',text:'लाइट 2 चालू करो'}]});
+ await assert.rejects(speech.transcribe(Buffer.alloc(6400),'auto'),e=>e.code==='INTENT_AMBIGUOUS');
+ speech.run=async()=>({candidates:[]});await assert.rejects(speech.transcribe(Buffer.alloc(6400),'auto'),e=>e.code==='RECOGNITION_UNCLEAR'&&e.fields.transcripts.length===0);
+ assert.equal(repo.one('SELECT COUNT(*) AS n FROM commands').n,0);
+});
 const { uid } = require('../lib/errors');
 const { devices } = require('../lib/registry');
 const { legacyBytes } = require('./helpers/legacy-fixture');
@@ -113,3 +122,17 @@ test('remote MQTT rejects plaintext before making a network connection', async t
   const {home}=await fixture(t); const {connectBroker}=require('../mqtt/broker'); assert.throws(()=>connectBroker(home,{MQTT_ENABLED:true,MQTT_USERNAME:'test',MQTT_PASSWORD:'test',MQTT_BROKER:'mqtt://192.0.2.1:1883'}),/TLS/);
 });
 test('query speech uses requested Hindi/English labels and remains a read-only result',async t=>{const{home,published}=await fixture(t);const{Assistant}=require('../services/assistant');home.ingest('home/light/1/status',Buffer.from('on'));const a=new Assistant(home);const p=a.interpret('check light 1 status',actor);const result=a.execute(p.intent_id,crypto.randomUUID(),actor);assert.match(a.speechText(result.answer.result_id,actor,'hi'),/चालू/);assert.match(a.speechText(result.answer.result_id,actor,'en'),/on/);assert.equal(published.length,0);});
+test('Automatic reply follows actual Hindi/English words even with a different decoder hint',async t=>{
+ const {home}=await fixture(t);const {Assistant}=require('../services/assistant');const a=new Assistant(home);
+ const mixed=a.interpret('Room 1 की लाइट बंद करो',actor);assert.equal(mixed.intent.language,'mixed');assert.equal(a.execute(mixed.intent_id,crypto.randomUUID(),actor).language,'hi');
+ const query=a.interpret('लाइट 1 की स्थिति',actor,'en');const result=a.execute(query.intent_id,crypto.randomUUID(),actor);assert.equal(result.answer.language,'hi');
+ const hinted=a.interpret('check light 1 status',actor,'hi');assert.equal(a.execute(hinted.intent_id,crypto.randomUUID(),actor).answer.language,'en');
+ const english=a.interpret('check light 1 status',actor,'en');assert.equal(a.execute(english.intent_id,crypto.randomUUID(),actor).answer.language,'en');
+});
+test('a saved wake-phrase requirement reports its specific reason rather than generic recognition failure',async t=>{
+ const {home}=await fixture(t);const {Assistant}=require('../services/assistant');const {SpeechService}=require('../voice/speech-service');const s=new SpeechService(home,new Assistant(home));t.after(()=>s.close());
+ s.run=async()=>({candidates:[{lang:'en',text:'light 1 on'}]});
+ await assert.rejects(s.transcribe(Buffer.alloc(6400),'auto',true),e=>e.code==='WAKE_PHRASE_REQUIRED');
+ assert.equal((await s.transcribe(Buffer.alloc(6400),'auto',false)).text,'light 1 on');
+ assert.equal(home.repo.one('SELECT COUNT(*) AS n FROM commands').n,0);
+});

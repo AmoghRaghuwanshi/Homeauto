@@ -7,7 +7,7 @@ const { maintain } = require('./db/maintenance');
 const { Sessions } = require('./auth/sessions');
 const { Home } = require('./services/home');
 const { Assistant } = require('./services/assistant');
-const { SpeechService } = require('./voice/speech-service');
+const { BrowserSpeechService } = require('./voice/browser-speech-service');
 const { createApp } = require('./app');
 const { attachRealtime } = require('./realtime');
 const { connectBroker } = require('./mqtt/broker');
@@ -24,8 +24,7 @@ function loadConfig(env = process.env) {
     CERT_PATH: env.HOMEAUTO_CERT_PATH || path.join(local, 'tls', 'server.cert'), KEY_PATH: env.HOMEAUTO_KEY_PATH || path.join(local, 'tls', 'server.key'),
     ALLOWED_HOSTS: (env.HOMEAUTO_ALLOWED_HOSTS || 'localhost,127.0.0.1,[::1]').split(',').map(s => s.trim()),
     MQTT_ENABLED: env.HOMEAUTO_MQTT_ENABLED === '1', MQTT_BROKER: env.HOMEAUTO_MQTT_BROKER || 'mqtts://localhost:8883', MQTT_USERNAME: env.HOMEAUTO_MQTT_USERNAME, MQTT_PASSWORD: env.HOMEAUTO_MQTT_PASSWORD, MQTT_CA: env.HOMEAUTO_MQTT_CA,
-    DOOR_ENABLED: env.HOMEAUTO_DOOR_ENABLED === '1', VOICE_ENABLED: env.HOMEAUTO_VOICE_ENABLED !== '0', MODELS_DIR: env.HOMEAUTO_MODELS_DIR || path.join(__dirname, 'voice', 'models'),
-    TTS_PYTHON: env.HOMEAUTO_TTS_PYTHON || path.join(local, 'speech-venv', 'Scripts', 'python.exe'), TTS_MODEL: env.HOMEAUTO_TTS_MODEL || path.join(local, 'speech-assets', 'kokoro-v1.0.onnx'), TTS_VOICES: env.HOMEAUTO_TTS_VOICES || path.join(local, 'speech-assets', 'voices-v1.0.bin'),
+    DOOR_ENABLED: env.HOMEAUTO_DOOR_ENABLED === '1', VOICE_ENABLED: env.HOMEAUTO_VOICE_ENABLED !== '0',
   };
 }
 async function startRuntime(config = loadConfig(), overrides = {}) {
@@ -36,7 +35,7 @@ async function startRuntime(config = loadConfig(), overrides = {}) {
   try {
     const home = overrides.home || new Home(repo, { allowDoor: config.DOOR_ENABLED });
     const sessions = overrides.sessions || new Sessions(repo, { secure });
-    const assistant = new Assistant(home); speech = overrides.speech || new SpeechService(home, assistant, config);
+    const assistant = new Assistant(home); speech = overrides.speech || new BrowserSpeechService(home, assistant, config);
     if (config.CLOUD_SYNC) syncWorker = createSyncWorker(repo, config.CLOUD_SYNC);
     if (config.GATEWAY) gatewayWorker = createGatewayWorker(home, config.GATEWAY);
     const app = createApp({ repo, home, sessions, assistant, speech, config, cloudStatus: () => config.GATEWAY ? gatewayStatus(repo,true) : syncStatus(repo, !!config.CLOUD_SYNC) });

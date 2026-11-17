@@ -1,5 +1,8 @@
 # Outbound gateway and browser synchronization
 
+> Architecture revision2026-11-14: AI runs on the ESP32-connected home hub. Remote clients will relay voice/conversations to that hub and receive its responses; the hub must be active and connected for remote voice and control. Models are installed on the hub only. See [the revised execution contract](HUB_AI_EXECUTION_PLAN.md). The implementation descriptions below remain current/historical evidence as dated; remote audio forwarding is not implemented yet.
+
+
 Implemented by `server/online/gateway.js`, optional local lifecycle wiring, `server/online/{protocol,store,app}.js` and `public/js/{api,state,cloud-state}.js`. Household routers need no public IP, inbound MQTT exposure or cloud database connection on the gateway. Existing MQTT topics/payloads, fixed seven-device registry and local WebSocket/voice runtime remain unchanged.
 
 ## Transport decision

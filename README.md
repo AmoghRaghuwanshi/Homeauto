@@ -1,5 +1,7 @@
 # HomeAuto 2.0
 
+Current voice architecture (2026-11-15): the browser uses Web Speech recognition and synthesis. The local hub validates recognized text over an authenticated WebSocket and owns device execution. No HomeAuto speech model or Python environment is required. The hub must remain running for controls. Browser recognition may require internet; this voice mode is not guaranteed offline. The earlier [hub AI execution plan](docs/cloud/HUB_AI_EXECUTION_PLAN.md) is retained as historical planning, not the active speech implementation.
+
 This repository contains two supported runtimes: the offline household hub and
 an optional authenticated Vercel/Neon cloud API. Start with
 [deployment readiness](docs/cloud/DEPLOYMENT_READINESS.md) and
@@ -15,14 +17,21 @@ not change when the minimum length changes. Use the same registered username to
 sign in; a duplicate signup never replaces an existing account's credentials.
 
 A local Node/Express smart-home hub with four themes, Hindi/English interface,
-authenticated controls and CPU speech workers. The active app uses vanilla ES
-modules; no build step, CDN, cloud identity or cloud speech service is required.
+authenticated controls and browser-managed speech. The active app uses vanilla ES
+modules; no build step, CDN or cloud identity is required for local controls.
+Browser recognition may use the browser vendor's speech service.
 
 The software has isolated tests and real cloud signup/auth checks. Physical household release remains
 blocked on supervised firmware/broker/door safety checks and human speech and
 accessibility trials. See [implementation journal](HomeAuto_UIUX_Docs/IMPLEMENTATION_JOURNAL.md).
 
 ## Run the isolated preview
+
+Open Assistant and select **Start conversation** for repeated turns, or tap the microphone for one request. Browser speech output finishes before listening resumes, with a 350ms quiet buffer. **End conversation**, navigation, hiding the tab, typing or microphone/network errors stop the automatic session.
+
+Choose English or Hindi for recognition. Automatic listening follows the app language because standard browser recognition accepts one language; automatic replies follow the recognized words even when the decoder hint differs. Keep Reply language on Automatic to match each request. Hindi output needs an available Hindi voice. Speech support and latency depend on the browser and its provider; zero latency and offline recognition are not promised.
+
+The [browser conversation report](docs/verification/BROWSER_VOICE_ASSISTANT.md) describes the current architecture and acceptance evidence. Greetings, home controls, current status and capability guidance use the existing bounded English/Hindi parser. Try “What can you do?” or “कृपया लाइट दो चालू करो.” General knowledge questions remain outside scope; no LLM or cloud Live API is used.
 
 ```powershell
 Set-Location Homeauto
@@ -35,8 +44,11 @@ npm run preview:isolated
 Open http://localhost:3001. The preview opens directly without login, account or
 sign-out options. The visible Simulation banner identifies the in-memory fixture.
 This process never opens a real MQTT connection or production database. Ctrl+C
-stops it. Native voice is available when the local assets and Python environment
-exist. Authentication remains enabled for the separate physical-device runtime.
+stops it. Browser voice needs a supported browser on localhost or HTTPS and microphone permission; no model download is needed. Authentication remains enabled for the separate physical-device runtime.
+
+Manual mic clicks never require a wake word. For hands-free activation, enable **Settings → Voice & assistant → Enable wake-word listening**. Say Shrimaan, Shreeman or Shiman while the page is visible. Idle listening pauses for speech output and resumes after a quiet buffer. **Stop wake listening** stops it. The option persists, but refresh/backgrounding never silently reopens the microphone. Browser recognition may send ambient audio to its provider.
+
+Assistant also keeps a live, multi-turn chat log in memory (up to 40 turns), cleared by refresh, Clear conversation or changing the current home/account.
 
 ## Run the real hub
 
@@ -68,6 +80,8 @@ npm run build
 npm test
 npm --prefix server run test:ux
 npm --prefix server run test:remediation
+npm --prefix server run test:browser-voice
+npm --prefix server run test:browser-conversation
 node server/scripts/online-browser-check.js
 ```
 
@@ -79,11 +93,7 @@ The mobile suite also covers WebKit: install with
 Use `npm --prefix server run test:signup -- --browser=chromium` and
 `npm --prefix server run test:signup -- --browser=webkit` for the isolated account,
 auth-screen, theme, accessibility and history-write regressions.
-Native speech tests (`test:speech`, `test:voice-browser` in server) separately
-need FFmpeg, installed local models and the pinned Python environment. Fixtures
-are synthetic and hardware responses are simulated. Tests do not prove physical
-relay position, gas calibration or human speech accuracy. Test output and images
-are written only under ignored `.local/qa`.
+Browser-conversation acceptance uses substituted recognition/synthesis APIs with the real local WebSocket/API and a simulated publisher. It does not certify the browser vendor's recognition, actual microphone quality or natural spoken voice quality. Legacy native speech scripts are historical utilities and are not part of the active browser setup. Tests do not prove physical relay position or gas calibration. Test output and images are written only under ignored `.local/qa` by default.
 
 ## Source map
 
@@ -93,7 +103,7 @@ are written only under ignored `.local/qa`.
 | HTTP and realtime | `server/app.js`, `server/realtime.js` |
 | Storage/authentication | `server/db/repository.js`, `server/db/maintenance.js`, `server/auth/sessions.js` |
 | Command/observation policy | `server/services/home.js`, `server/mqtt/broker.js` |
-| Assistant and speech | `server/services/assistant.js`, `server/voice/intent.js`, `speech-service.js`, isolated workers |
+| Assistant and speech | `server/services/assistant.js`, `server/voice/intent.js`, `server/voice/browser-speech-service.js`, `public/js/browser-voice.js`, `public/js/live-conversation.js` |
 | Interface | `public/index.html`, `public/js/main.js`, `views.js`, `components.js`, `public/css/` |
 | Operations/tests | `server/scripts/`, `server/tests/`, `deploy/` |
 
@@ -127,15 +137,7 @@ environments and model weights. Create new private state during setup. Never
 copy historical data/key material into Git or use the old key. No household
 database is needed for tests or preview.
 
-Speech is optional during source checkout verification. Provision the exact
-files/hashes in server/voice/asset-manifest.json using the upstream Vosk and
-Kokoro distributions described in
-[offline speech](HomeAuto_UIUX_Docs/OFFLINE_AI.md) and
-[operations](HomeAuto_UIUX_Docs/OPERATIONS.md). Verify HTTPS source, version,
-SHA256, archive paths and model/voice license notices before extraction into
-the ignored private asset directories. No runtime endpoint downloads models.
-Native dependencies require the appropriate local build tools; install/enable
-them only in that private setup. Typed controls stay available without models.
+No speech asset provisioning is required. The previous Whisper/Kokoro weights, native environments, tools and generated fixed-audio cache were moved outside this checkout into a recoverable local archive. Native worker source/tests and dated results remain historical references; the active lifecycle does not import those workers. No runtime endpoint downloads models. Typed controls remain available when browser speech is unsupported.
 
 No project-wide open-source license has been selected for original source;
 this public source publication does not add a permissive license. Dependency

@@ -1,14 +1,33 @@
 const crypto = require('crypto');
 const { resolveCommand } = require('../voice/intent');
+const { dialogueKind, dialogueText } = require('../voice/dialogue');
 const { authorize } = require('../auth/sessions');
 const { fail, uuid } = require('../lib/errors');
-function queryText(devices,language){const labels={on:'चालू',off:'बंद',locked:'लॉक',unlocked:'अनलॉक',normal:'सामान्य',alert:'चेतावनी',clear:'हलचल नहीं',detected:'हलचल हुई'};return devices.map(d=>`${d.name}: ${d.observation.freshness==='current'?(language==='hi'?labels[d.observation.reported_status]||'स्थिति उपलब्ध नहीं है':d.observation.reported_status):language==='hi'?'स्थिति उपलब्ध नहीं है':'status unavailable'}`).join('. ');}
+const { inputLanguage } = require('../../public/js/assistant-language');
+function queryText(devices, language, simulation = false) {
+  const hindi = language === 'hi';
+  const labels = { on: 'चालू', off: 'बंद', locked: 'लॉक', unlocked: 'अनलॉक', normal: 'सामान्य', alert: 'चेतावनी', clear: 'हलचल नहीं', detected: 'हलचल हुई' };
+  const text = devices.map(d => {
+    if (d.observation.freshness !== 'current') return `${d.name}: ${hindi ? 'स्थिति उपलब्ध नहीं है' : 'status unavailable'}`;
+    const status = hindi ? labels[d.observation.reported_status] || 'स्थिति उपलब्ध नहीं है' : d.observation.reported_status;
+    if (d.id === 'door-1' && !simulation) return hindi ? `${d.name}: कंट्रोलर के अनुसार ${status}। वास्तविक लॉक की स्थिति मापी नहीं जाती।` : `${d.name}: controller reports ${status}. Physical lock position is not sensed.`;
+    if (d.id === 'sensor-gas' && Number.isFinite(d.latest?.gas_ppm)) return hindi ? `${d.name}: ${status}। कंट्रोलर का गैस अनुमान ${d.latest.gas_ppm} पीपीएम है।` : `${d.name}: ${status}. Controller gas estimate: ${d.latest.gas_ppm} ppm.`;
+    return `${d.name}: ${status}`;
+  }).join('. ');
+  return (simulation ? hindi ? 'डेमो: ' : 'Demo: ' : '') + text;
+}
 class Assistant {
   constructor(home) { this.home = home; this.intents = new Map(); this.answers = new Map(); }
-  interpret(text, actor) {
+  interpret(text, actor, recognizedLanguage = 'auto') {
     const { home } = this;
     const parsed = resolveCommand(text, home.repo.getDevices(), home.rooms(), home.repo.all('SELECT * FROM room_aliases WHERE confirmed=1'));
-    if (!parsed.ok) fail('INTENT_' + parsed.reason.toUpperCase(), 422, parsed.reason, { choices: parsed.choices });
+    if (!parsed.ok) {
+      const reply = dialogueKind(text, parsed);
+      if (!reply) fail('INTENT_' + parsed.reason.toUpperCase(), 422, parsed.reason, { choices: parsed.choices });
+      parsed.intent = { kind: 'conversation', action: 'reply', reply_key: reply, device_ids: [], devices: [], sensitive: false };
+    }
+    // A decoder locale is a hint. The actual words select automatic replies.
+    parsed.intent.reply_language = inputLanguage(text, recognizedLanguage);
     const id = crypto.randomUUID(); const expires = home.now() + 30000;
     if (this.intents.size >= 100) this.prune();
     if (this.intents.size >= 100) fail('ASSISTANT_BUSY', 429);
@@ -20,14 +39,21 @@ class Assistant {
     const stored = this.intents.get(id);
     if (!stored || stored.actor !== actor.user_id || stored.session !== actor.token_hash || stored.expires <= this.home.now()) fail('INTENT_EXPIRED', 409);
     const intent = stored.intent;
-    authorize(actor, intent.kind === 'query' ? 'read' : 'control');
+    authorize(actor, ['query', 'conversation'].includes(intent.kind) ? 'read' : 'control');
     if (stored.result) { if (key !== stored.key) fail('INTENT_ALREADY_USED', 409); return stored.result; }
     if (intent.sensitive) fail('SENSITIVE_ACTION_REQUIRES_UI', 403);
-    if (intent.kind === 'query') {
+    if (intent.kind === 'conversation') {
+      const result_id = crypto.randomUUID();
+      const preferred = this.home.preferences(actor).reply_language;
+      const language = preferred === 'auto' ? intent.reply_language : preferred;
+      const answer = { result_id, message_key: 'conversation_' + intent.reply_key, text: dialogueText(intent.reply_key, this.home, actor, language), language };
+      this.answers.set(result_id, { actor: actor.user_id, answer, reply_key: intent.reply_key, expires: this.home.now() + 60000 });
+      stored.result = { answer };
+    } else if (intent.kind === 'query') {
       const devices = intent.device_ids.map(d => this.home.device(d));
       const result_id = crypto.randomUUID();
-      const language = this.home.preferences(actor).reply_language === 'auto' ? intent.language === 'hi' ? 'hi' : 'en' : this.home.preferences(actor).reply_language;
-      const text = queryText(devices,language);
+      const language = this.home.preferences(actor).reply_language === 'auto' ? intent.reply_language : this.home.preferences(actor).reply_language;
+      const text = queryText(devices,language,this.home.simulation);
       const answer = { result_id, message_key: 'query_result', text, language };
       this.answers.set(result_id, { actor: actor.user_id, answer, devices, expires: this.home.now() + 60000 });
       stored.result = { answer };
@@ -42,7 +68,7 @@ class Assistant {
       }
       const result_id = crypto.randomUUID();
       const preferred = this.home.preferences(actor).reply_language;
-      const language = preferred === 'auto' ? intent.language === 'hi' ? 'hi' : 'en' : preferred;
+      const language = preferred === 'auto' ? intent.reply_language : preferred;
       this.answers.set(result_id, { actor: actor.user_id, commandIds: commands.map(c => c.id), errors, expires: this.home.now() + 60000 });
       stored.result = { commands, errors, result_id, language };
     }
@@ -53,12 +79,21 @@ class Assistant {
     if (c) {
       if (c.actor_id !== actor.user_id && actor.role !== 'owner') fail('NOT_FOUND', 404);
       const d = this.home.device(c.device_id);
+      if (this.home.simulation && c.state === 'observed') {
+        const current = d.observation.freshness === 'current';
+        const labels = { on: 'चालू', off: 'बंद', locked: 'लॉक', unlocked: 'अनलॉक' };
+        return language === 'hi'
+          ? `डेमो: ${d.name}: ${current ? labels[d.observation.reported_status] || 'स्थिति उपलब्ध नहीं है' : 'स्थिति उपलब्ध नहीं है'}।`
+          : `Demo: ${d.name}: ${current ? d.observation.reported_status : 'status unavailable'}.`;
+      }
       return c.state === 'observed' ? language === 'hi' ? `${d.name}: पहले मिली कंट्रोलर रिपोर्ट (${c.observed_at}): ${c.action === 'on' ? 'चालू' : c.action === 'off' ? 'बंद' : c.action === 'lock' ? 'लॉक' : 'अनलॉक'}। वास्तविक लॉक की स्थिति मापी नहीं जाती।` : `Earlier controller report for ${d.name} at ${c.observed_at}: ${c.action}. Physical lock position is not sensed.` : language === 'hi' ? 'बदलाव की पुष्टि अभी नहीं हुई है। कृपया स्थिति जाँचें।' : 'The change has not been confirmed. Please check its status.';
     }
     const a = this.answers.get(id); if (!a || a.actor !== actor.user_id || a.expires <= this.home.now()) fail('RESULT_EXPIRED', 410);
+    if (a.reply_key) return dialogueText(a.reply_key, this.home, actor, language);
     if (a.commandIds) return [...a.commandIds.map(command => this.speechText(command, actor, language)), ...a.errors.map(error => language === 'hi' ? `${this.home.device(error.device_id)?.name || error.device_id}: अनुरोध पूरा नहीं हुआ (${error.code})।` : `${this.home.device(error.device_id)?.name || error.device_id}: request failed (${error.code}).`)].join(' ');
-    return queryText(a.devices.map(d => this.home.device(d.id)),language);
+    return queryText(a.devices.map(d => this.home.device(d.id)),language,this.home.simulation);
   }
+  cacheableSpeech(id, actor) { const a = this.answers.get(id); return !!(a && a.actor === actor.user_id && a.expires > this.home.now() && a.reply_key); }
   prune() { for (const [k, v] of this.intents) if (v.expires <= this.home.now()) this.intents.delete(k); for (const [k, v] of this.answers) if (v.expires <= this.home.now()) this.answers.delete(k); }
 }
 module.exports = { Assistant };

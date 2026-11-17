@@ -4,7 +4,7 @@ const { byId } = require('../lib/registry');
 const { fail, uuid } = require('../lib/errors');
 const { authorize, hash } = require('../auth/sessions');
 const terminal = new Set(['observed', 'uncertain', 'failed']);
-const defaults = { favorites: [], reply_language: 'auto', input_language: 'auto', spoken_replies: false, voice_rate: 1, notification_categories: ['gas', 'motion', 'access_denied'] };
+const defaults = { favorites: [], reply_language: 'auto', input_language: 'auto', spoken_replies: true, voice_rate: .9, notification_categories: ['gas', 'motion', 'access_denied'] };
 class Home extends EventEmitter {
   constructor(repo, { now = Date.now, publisher = null, allowDoor = false, simulation = false } = {}) {
     super(); this.repo = repo; this.now = now; this.publisher = publisher; this.allowDoor = allowDoor; this.simulation = simulation;
