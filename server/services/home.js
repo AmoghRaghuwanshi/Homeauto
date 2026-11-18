@@ -13,6 +13,10 @@ class Home extends EventEmitter {
     this.observations = new Map(); this.scanTimes = new Map();
   }
   emitChange() { this.emit('change'); }
+  hardwareReady() { return Object.keys(this.boards).some(id => this.boardOnline(id)); }
+  assertHardwareReady() {
+    if (this.hardwareRequired && !this.hardwareReady()) fail('ESP32_REQUIRED', 503);
+  }
   rooms() { return this.repo.all('SELECT * FROM rooms ORDER BY sort_order,name'); }
   preferences(actor) { const p = this.repo.one('SELECT * FROM user_preferences WHERE user_id=?', [actor.user_id]); return { ...defaults, ...(p ? JSON.parse(p.value_json) : {}), version: p ? p.version : 0 }; }
   homeSettings() { const r = this.repo.one("SELECT * FROM home_settings WHERE key='home_name'"); return { home_name: JSON.parse(r.value_json), version: r.version }; }
@@ -39,7 +43,7 @@ class Home extends EventEmitter {
       espBoards: Object.fromEntries(Object.entries(this.boards).map(([id, b]) => [id, { ...b, online: this.boardOnline(id), lastSeen: b.lastSeen === null ? null : new Date(b.lastSeen).toISOString() }])), mqtt: { connected: this.connected },
       commands: this.repo.all("SELECT id FROM commands ORDER BY requested_at DESC LIMIT 40").map(c => this.command(c.id)).filter(c => actor.role === 'owner' || c.actor_id === actor.user_id),
       alerts: this.alerts(actor), session: actor.user, preferences: this.preferences(actor), home: this.homeSettings(), speech,
-      system: { simulation: this.simulation, door_enabled: this.allowDoor, persistence_healthy: this.repo.healthy(), fault: this.fault } };
+      system: { simulation: this.simulation, hardware_required: !!this.hardwareRequired, hardware_ready: this.hardwareReady(), door_enabled: this.allowDoor, persistence_healthy: this.repo.healthy(), fault: this.fault } };
   }
   setConnected(connected) {
     this.connected = connected;

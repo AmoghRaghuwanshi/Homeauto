@@ -1,6 +1,7 @@
 node_modules/
 .local/
 server/db/*.db*
+server/db/backups/
 server/certs/
 server/voice/models/
 .env

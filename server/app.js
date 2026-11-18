@@ -5,8 +5,9 @@ const { DomainError, fail, fields, text, uid, version, uuid } = require('./lib/e
 const { authorize, secureEqual } = require('./auth/sessions');
 const { byId } = require('./lib/registry');
 const { defaults } = require('./services/home');
+const { CameraService } = require('./camera/service');
 
-function createApp({ repo, home, sessions, assistant, speech, config = {}, cloudStatus = () => ({ enabled: false, state: 'disabled' }) }) {
+function createApp({ repo, home, sessions, assistant, speech, camera = new CameraService(), modules = null, config = {}, cloudStatus = () => ({ enabled: false, state: 'disabled' }) }) {
   if (!repo || !home || !sessions || !assistant || !speech) throw new Error('Explicit application dependencies required');
   const app = express(); app.disable('x-powered-by'); app.set('query parser', 'simple');
   const allowedHosts = new Set(config.ALLOWED_HOSTS || ['localhost', '127.0.0.1', '[::1]']);
@@ -42,6 +43,21 @@ function createApp({ repo, home, sessions, assistant, speech, config = {}, cloud
     if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) return res.status(403).json({ error: { code: 'FORBIDDEN' } });
     res.json({ setup_required: !repo.one('SELECT id FROM users LIMIT 1') });
   });
+  let setupBusy = false;
+  app.post('/api/auth/setup', asyncRoute(async (req, res) => {
+    mutation(req);
+    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) fail('FORBIDDEN', 403);
+    fields(req.body, ['username', 'password', 'display_name'], ['username', 'password', 'display_name']);
+    if (repo.one('SELECT id FROM users LIMIT 1')) fail('OWNER_ALREADY_CONFIGURED', 409);
+    if (setupBusy) fail('AUTH_BUSY', 429);
+    setupBusy = true;
+    try {
+      await sessions.addUser({ ...req.body, role: 'owner', can_unlock: true, minimumPasswordLength: 10 });
+      const result = await sessions.login(req.body.username, req.body.password, req.socket.remoteAddress);
+      res.setHeader('Set-Cookie', sessions.cookie(result.token));
+      res.status(201).json(sessionDTO(result));
+    } finally { setupBusy = false; }
+  }));
   const counts = new Map();
   app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -56,6 +72,39 @@ function createApp({ repo, home, sessions, assistant, speech, config = {}, cloud
     } catch (e) { next(e); }
   });
   app.get('/api/auth/session', (req, res) => res.json(sessionDTO(req.actor)));
+  app.get('/api/modules', (req, res) => {
+    authorize(req.actor, 'owner');
+    if (!modules) fail('MODULES_UNAVAILABLE', 503);
+    res.json(modules.status());
+  });
+  app.put('/api/modules/:kind', asyncRoute(async (req, res) => {
+    authorize(req.actor, 'sensitive', home.now());
+    if (!modules || !['esp32', 'camera'].includes(req.params.kind)) fail('NOT_FOUND', 404);
+    res.json(await modules.configure(req.params.kind, req.body));
+  }));
+  app.post('/api/modules/:kind/connect', asyncRoute(async (req, res) => {
+    authorize(req.actor, 'sensitive', home.now());
+    fields(req.body, []);
+    if (!modules || !['esp32', 'camera'].includes(req.params.kind)) fail('NOT_FOUND', 404);
+    res.json(await modules.connect(req.params.kind));
+  }));
+  app.get('/api/camera/status', (req, res) => {
+    authorize(req.actor, 'owner');
+    res.json(camera.status());
+  });
+  app.get('/api/camera/frame', (req, res) => {
+    authorize(req.actor, 'owner');
+    const frame = camera.frame();
+    res.set('X-Camera-Generation', frame.generation);
+    res.set('X-Camera-Sequence', String(frame.sequence));
+    res.type('png').send(frame.data);
+  });
+  app.post('/api/camera/fixture', (req, res) => {
+    authorize(req.actor, 'owner');
+    fields(req.body, ['scenario'], ['scenario']);
+    if (!home.simulation) fail('CAMERA_SIMULATION_UNAVAILABLE', 409);
+    res.json(camera.scenario(req.body.scenario));
+  });
   app.post('/api/auth/activity', (req, res) => { fields(req.body, []); if (!sessions.touch(req.token)) fail('LOGIN_REQUIRED', 401); res.json({ success: true }); });
   app.post('/api/auth/logout', (req, res) => { sessions.logout(req.token); home.emit('revoke', req.actor.token_hash); res.setHeader('Set-Cookie', sessions.cookie('', true)); res.json({ success: true }); });
   app.post('/api/auth/reauth', asyncRoute(async (req, res) => { fields(req.body, ['password'], ['password']); const result = await sessions.reauth(req.actor, req.token, req.body.password); home.emit('revoke', req.actor.token_hash); res.setHeader('Set-Cookie', sessions.cookie(result.token)); res.json({ ...sessionDTO(result), reauth_until: new Date(result.reauth_at + 300000).toISOString() }); }));

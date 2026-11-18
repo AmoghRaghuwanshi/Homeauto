@@ -19,10 +19,10 @@ async function verify(password, encoded) {
 }
 class Sessions {
   constructor(repo, { now = Date.now, secure = true } = {}) { this.repo = repo; this.now = now; this.secure = secure; this.failures = new Map(); this.lastTouches = new Map(); this.busy = 0; }
-  async addUser({ username, password, display_name, role = 'owner', can_unlock = false }) {
+  async addUser({ username, password, display_name, role = 'owner', can_unlock = false, minimumPasswordLength = 12 }) {
     if (!['owner', 'resident', 'viewer'].includes(role)) fail('INVALID_ROLE');
     const user = { id: crypto.randomUUID(), username: text(username).toLowerCase(), display_name: text(display_name || username), role, can_unlock: role !== 'viewer' && !!can_unlock };
-    const encoded = await passwordHash(password);
+    const encoded = await passwordHash(password, { minimumLength: minimumPasswordLength });
     this.repo.transaction(tx => {
       tx.run('INSERT INTO users(id,username,display_name,password_hash,role,can_unlock,created_at) VALUES(?,?,?,?,?,?,?)', [user.id, user.username, user.display_name, encoded, role, +user.can_unlock, new Date(this.now()).toISOString()]);
       this.repo.log(null, 'user_created', { role }, user.id, null, tx);

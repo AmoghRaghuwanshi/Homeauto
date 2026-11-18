@@ -19,6 +19,7 @@ function queryText(devices, language, simulation = false) {
 class Assistant {
   constructor(home) { this.home = home; this.intents = new Map(); this.answers = new Map(); }
   interpret(text, actor, recognizedLanguage = 'auto') {
+    this.home.assertHardwareReady();
     const { home } = this;
     const parsed = resolveCommand(text, home.repo.getDevices(), home.rooms(), home.repo.all('SELECT * FROM room_aliases WHERE confirmed=1'));
     if (!parsed.ok) {
@@ -35,6 +36,7 @@ class Assistant {
     return { intent: parsed.intent, intent_id: id, expires_at: new Date(expires).toISOString() };
   }
   execute(id, key, actor) {
+    this.home.assertHardwareReady();
     if (!uuid(key)) fail('INVALID_IDEMPOTENCY_KEY');
     const stored = this.intents.get(id);
     if (!stored || stored.actor !== actor.user_id || stored.session !== actor.token_hash || stored.expires <= this.home.now()) fail('INTENT_EXPIRED', 409);

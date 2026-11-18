@@ -1,7 +1,3 @@
-/* HomeAuto production UI. Stageshow craftsmanship adapted to native DOM controls. */
-@import url('./tokens.css');
-@import url('./foundation.css');
-@import url('./controls.css');
-@import url('./shell.css');
-@import url('./pages.css');
-@import url('./motion.css');
+/* Preserve the deployed HomeAuto layout with the approved semantic palettes. */
+@import url('./deployed-layout.css');
+@import url('./assistant-enhancements.css');

@@ -11,7 +11,6 @@ import { WakeListener } from './wake-listener.js';
 import { beginChatTurn } from './chat-history.js';
 import { Navigation, routeInfo, captureFocus, restoreFocus } from './navigation.js';
 import { createDemoHome } from './demo.js';
-import { roomArt } from './room-art.js';
 import { speechStatus, speechAvailable } from './speech-status.js';
 
 const app = document.getElementById('app'); const toasts = document.getElementById('toasts');
@@ -67,6 +66,7 @@ const ctx = {
   async typed(text) { if (!text.trim()) return; ctx.pauseWake?.(); ctx.endLive?.(); ctx.voice.cancel(); ctx.stopAudio(); ctx.conversation.commandIds = null; ctx.conversation.commandErrors = []; const generation = ctx.assistantGeneration = (ctx.assistantGeneration || 0) + 1; ctx.beginTurn?.(); ctx.conversation.transcript = text; ctx.conversation.replyLanguage = globalThis.HomeAutoLanguage.inputLanguage(text, state.snapshot.preferences.input_language); ctx.conversation.response = t('Understanding…'); ctx.conversation.resultId = null; ctx.conversation.securityLink = false; ctx.updateConversation?.(); try { const parsed = await Api.request('/api/assistant/interpret', { method: 'POST', body: { text, language: state.snapshot.preferences.input_language } }); if (generation !== ctx.assistantGeneration) return; await executeIntent(parsed, generation); } catch (e) { if (generation === ctx.assistantGeneration) assistantError(e); } },
   stopAudio() { ctx.audioGeneration = (ctx.audioGeneration || 0) + 1; ctx.browserSpeech?.stop(); ctx.audio?.pause(); ctx.audio = null; document.getElementById('assistant-audio-output')?.replaceChildren(); },
   previewVoice(language) {
+    if (state.snapshot.system.hardware_required && !state.snapshot.system.hardware_ready) return ctx.notify(errorText({ code: 'ESP32_REQUIRED' }), true);
     ctx.endLive(); ctx.pauseWake();
     return ctx.run(() => ctx.browserOutput({ language, rate: state.snapshot.preferences.voice_rate,
       text: language === 'hi' ? 'नमस्ते! मैं श्रीमान हूँ। बताइए, मैं आपकी क्या मदद करूँ?' : 'Hello! I’m Shrimaan. How can I help you with your home?' }));
@@ -167,7 +167,7 @@ async function switchDemo(enabled, destination = '/') {
     }
   }
 }
-ctx.startDemo=()=>ctx.run(()=>switchDemo(true));
+ctx.startDemo=()=>ctx.notify(t('Connect your ESP32 to use HomeAuto.'), true);
 ctx.exitDemo=destination=>ctx.run(()=>switchDemo(false,typeof destination==='string'?destination:'/'));
 ctx.demoScenario=kind=>ctx.run(async()=>{Api.demo?.scenario(kind);ctx.activityPage=null;await ctx.refresh();});
 ctx.resetDemo=()=>modal('Reset demo home',el('p',{},t('Reset only the simulated lights, favorites and scenarios in this browser tab.')),{confirmLabel:'Reset demo',onConfirm:async()=>{Api.demo?.reset();ctx.activityPage=null;await ctx.refresh();}});
@@ -281,7 +281,7 @@ function buildShell() {
   const sidebar = el('aside', { class: 'sidebar' }, brand(), el('p', { class: 'nav-label' }, t('Controls')), el('nav', { class: 'primary-nav', 'aria-label': t('Main navigation') }, nav.map(([label, href, key]) => el('a', { href, class: 'nav-item', ...(current === (href === '/' ? 'home' : href.slice(1)) ? { 'aria-current': 'page' } : {}) }, icon(key), el('span', {}, t(label))))),
     el('div', { class: 'sidebar-bottom' }, el('a', { href: '/security/activity', class: 'nav-item' }, icon('clock'), t('Activity')), el('a', { href: '/settings/help', class: 'nav-item' }, icon('help'), t('Help & support'))), el('p', { class: 'sidebar-note' }, icon('leaf', 'icon-small'), t(Api.mode === 'cloud' ? 'HomeAuto online' : 'Local and private')));
   const session = state.session.user; const activeAlerts = state.snapshot.alerts.filter(a => a.state === 'active' && !a.receipt.read_at).length;
-  const top = el('header', { class: 'topbar' }, el('a', { class: 'home-name', href: '/', 'aria-label': t('My home'), title: t('Go home') }, icon('home'), el('div', { class: 'home-name-copy' }, el('small', {}, t(Api.mode === 'cloud' ? 'HomeAuto online' : 'Local and private')), el('span', {}, state.snapshot.home.home_name))), el('div', { class: 'top-actions' }, el('time', { class: 'topbar-date', datetime: new Date().toISOString().slice(0,10) }, new Date().toLocaleDateString(preferences.language === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'short', day: 'numeric', month: 'short' })), el('a', { href: '/security/alerts', class: 'icon-button', 'aria-label': t('Alerts') + (activeAlerts ? ' (' + activeAlerts + ')' : '') }, icon('bell')), el('a', { href: '/settings', class: 'icon-button profile', 'aria-label': t('Settings') }, session.preview ? icon('settings') : session.display_name.slice(0, 2).toUpperCase())));
+  const top = el('header', { class: 'topbar' }, el('a', { class: 'home-name', href: '/', 'aria-label': t('My home'), title: t('Go home') }, icon('home'), el('span', {}, state.snapshot.home.home_name)), el('div', { class: 'top-actions' }, el('a', { href: '/security/alerts', class: 'icon-button', 'aria-label': t('Alerts') + (activeAlerts ? ' (' + activeAlerts + ')' : '') }, icon('bell')), el('a', { href: '/settings', class: 'icon-button profile', 'aria-label': t('Settings') }, session.preview ? icon('settings') : session.display_name.slice(0, 2).toUpperCase())));
   main = el('main', { class: 'main', id: 'main', tabindex: '-1' }); const workspace = el('div', { class: 'workspace' }, top);
   if (state.snapshot.system.simulation && !Api.demo) workspace.append(el('div', { class: 'banner banner-simulation', role: 'status' }, icon('info'), t('Simulation — no physical devices connected')));
   workspace.append(el('div', {class:'banner banner-wake', id:'wake-listening-status', role:'status', hidden:true}, icon('mic'), el('span', {'data-wake-label':''}), button('Stop wake listening', () => ctx.wake.stop(), {kind:'ghost'}))); workspace.append(main); app.replaceChildren(link('Skip to content', '#main', 'skip'), sidebar, workspace); shellBuilt = true; ctx.updateWake?.();
@@ -300,6 +300,9 @@ function frameView(view) {
   view.prepend(header); return view;
 }
 function globalBanner() {
+  if (Api.mode === 'local' && state.snapshot?.system?.hardware_required && state.snapshot.system.hardware_ready) {
+    return el('div', { class: 'banner', role: 'status' }, t('Camera setup is pending. Check optional module connections on the Modules page.'), link('Modules', '/modules', 'button button-secondary'));
+  }
   if (Api.demo) return el('div',{class:'banner banner-simulation demo-mode-bar',role:'status'},icon('info'),el('div',{class:'grow'},el('strong',{},t('Demo home')),el('p',{class:'small'},t('Simulated devices. No physical commands are sent.'))),button('Use my real home',()=>ctx.exitDemo(),{kind:'secondary'}));
   if (state.connecting) return el('p', { class: 'small muted' }, t('Connecting…'));
   if (Api.mode==='cloud' && state.connected && state.snapshot.gateway?.state === 'not_enrolled') return null;
@@ -326,6 +329,14 @@ async function render(focus = false) {
   main.setAttribute('aria-busy', 'true');
   try {
     const view = await renderView(ctx); if (id !== renderId || !state.session) return;
+    if (location.pathname === '/modules' && samePath && main) {
+      // A status request can finish while the owner is editing connection details.
+      // Preserve the values present now, including a deliberately cleared password.
+      const latestDrafts = [...main.querySelectorAll('input,textarea,select')]
+        .filter(input => input.name && !['radio', 'checkbox', 'range'].includes(input.type))
+        .map(input => [input.name, input.value]);
+      drafts.splice(0, drafts.length, ...latestDrafts);
+    }
     // Focus may have returned from a dialog while this asynchronous view was
     // loading. Preserve the current owner instead of an earlier body focus.
     const currentFocus = document.activeElement;
@@ -350,6 +361,12 @@ async function render(focus = false) {
 function onUpdate() {
   if (pageLeaving) return;
   if (ctx.transitioning) return;
+  const hardwareBlocked = Api.mode === 'local' && state.snapshot?.system?.hardware_required && (!state.connected || !state.snapshot.system.hardware_ready);
+  if (hardwareBlocked) {
+    ctx.wake?.stop();
+    ctx.endLive?.();
+    assistantBuilt = false;
+  }
   if (state.session && state.snapshot?.session) state.session.user = { ...state.session.user, ...state.snapshot.session };
   document.documentElement.dataset.connected = String(state.connected);
   document.getElementById('global-banner')?.replaceChildren(...[globalBanner()].filter(Boolean));
@@ -363,7 +380,7 @@ function onUpdate() {
   initialAlerts = true;
   if (location.pathname === '/assistant' && assistantBuilt) { setVoiceState(ctx.voice.state); ctx.updateConversation?.(); return; }
   // Keep cursor pages and reading position until the user explicitly refreshes.
-  if (location.pathname === '/security/activity' && lastPath === navigation.path() && main?.children.length) return;
+  if (!hardwareBlocked && location.pathname === '/security/activity' && lastPath === navigation.path() && main?.children.length) return;
   render();
 }
 function authLanguages() {
@@ -378,14 +395,7 @@ function accountError(error, signup = false) {
 function authLayout(form, signup = false) {
   const cloud = Api.mode === 'cloud';
   document.title = t(signup ? 'Create account' : 'Sign in') + ' · HomeAuto';
-  const story = el('section', { class: 'login-story' }, brand(),
-    el('p', { class: 'eyebrow' }, t(cloud ? 'HomeAuto online' : 'Local and private')),
-    el('h1', { tabindex: '-1' }, t(signup ? 'Create your account' : cloud ? 'Sign in to HomeAuto' : 'Your home stays yours.')),
-    el('p', {}, t(signup ? 'New accounts get a separate home. Devices connect through your home gateway.' : cloud ? 'Use your cloud account for online access. Local controls stay on the home hub.' : 'Internet is not needed for everyday controls.')),
-    el('div', { class: 'auth-scene', 'aria-hidden': 'true' }, el('div', { class: 'auth-room' }, roomArt('living-room')), el('div', { class: 'auth-room auth-room-small' }, roomArt('entrance'))),
-    el('div', { class: 'auth-capabilities' }, el('span', {}, icon('rooms'), t('Rooms')), el('span', {}, icon('shield'), t('Security')), el('span', {}, icon('mic'), 'Shrimaan')));
-  const formPanel = el('section', { class: 'login-form-wrap', 'aria-label': t(signup ? 'Create account' : 'Sign in') }, form);
-  app.replaceChildren(el('main', { class: 'login-layout' }, story, formPanel));
+  app.replaceChildren(el('main', { class: 'login-layout' }, el('section', { class: 'login-story' }, brand(), el('p', { class: 'eyebrow' }, t(cloud ? 'HomeAuto online' : 'Local and private')), el('h1', { tabindex: '-1' }, t(signup ? 'Create your account' : cloud ? 'Sign in to HomeAuto' : 'Your home stays yours.')), el('p', {}, t(signup ? 'New accounts get a separate home. Devices connect through your home gateway.' : cloud ? 'Use your cloud account for online access. Local controls stay on the home hub.' : 'Internet is not needed for everyday controls.')), el('img', { src: '/assets/home-scene.svg', alt: '', width: 260, height: 220 })), el('section', { class: 'login-form-wrap', 'aria-label': t(signup ? 'Create account' : 'Sign in') }, form)));
   const heading = app.querySelector('h1'); requestAnimationFrame(() => { if (heading.isConnected && (document.activeElement === document.body || !app.contains(document.activeElement))) heading.focus({ preventScroll: true }); });
 }
 function renderSignup(draft = signupRequest?.draft || {}) {
@@ -438,6 +448,30 @@ function renderSignup(draft = signupRequest?.draft || {}) {
   });
   authLayout(form, true);
 }
+function renderLocalSetup() {
+  shellBuilt = false; main = null;
+  const name = field('Display name', { name: 'setup-name', autocomplete: 'name' });
+  const username = field('Username', { name: 'setup-username', autocomplete: 'username', autocapitalize: 'none' });
+  const password = field('Password', { name: 'setup-password', type: 'password', autocomplete: 'new-password', minlength: 10, maxLength: 256 });
+  const failure = el('p', { class: 'form-error', role: 'alert', hidden: true });
+  const submit = el('button', { type: 'submit', class: 'button button-primary' }, t('Set up local owner'));
+  const form = el('form', { class: 'login-form' }, el('h2', {}, t('Set up local owner')),
+    el('p', {}, t('Choose the account that will manage this laptop’s home hardware. Use a password of at least 10 characters.')),
+    name.node, username.node, password.node, failure, submit);
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (submit.disabled) return;
+    submit.disabled = true; failure.hidden = true;
+    try {
+      await Api.request('/api/auth/setup', { method: 'POST', body: { username: username.input.value.trim(), display_name: name.input.value.trim(), password: password.input.value } });
+      password.input.value = '';
+      await bootstrap();
+    } catch (error) { failure.textContent = errorText(error); failure.hidden = false; }
+    finally { submit.disabled = false; }
+  });
+  authLayout(form);
+  document.title = t('Set up local owner') + ' · HomeAuto';
+}
 function renderLogin(draft = {}) {
   if (Api.mode === 'cloud' && location.pathname === '/signup') return renderSignup(draft);
   shellBuilt = false; main = null; const generation = ++renderId; lastPath = '';
@@ -472,6 +506,14 @@ window.addEventListener('pagehide', () => { pageLeaving = true; });
 window.addEventListener('pageshow', () => { pageLeaving = false; });
 async function bootstrap() {
   try { await Api.initialize(); authInitialized = true; state.session = await Api.request('/api/auth/session'); if(Api.mode==='cloud'&&Api.restoreDemo(state.session)){realDemoSession=structuredClone(state.session);let storage=null;try{storage=sessionStorage;}catch{}Api.startDemo(state.session,createDemoHome(state.session,storage));} await ctx.refresh(); connectState(onUpdate, ctx.refresh); render(); }
-  catch (error) { if (error.status === 401) return renderLogin(); shellBuilt = false; app.replaceChildren(el('main', { class: 'main' }, empty(Api.mode === 'cloud' ? (['CLOUD_CONFIGURATION_REQUIRED', 'CLOUD_SCHEMA_REQUIRED', 'UNSAFE_DATABASE_ROLE'].includes(error.code) ? 'Cloud setup is incomplete' : 'HomeAuto is unavailable') : 'Home hub unavailable', Api.mode === 'cloud' ? (['CLOUD_CONFIGURATION_REQUIRED', 'CLOUD_SCHEMA_REQUIRED', 'UNSAFE_DATABASE_ROLE'].includes(error.code) ? 'Ask the home owner to finish cloud setup.' : 'Check your internet connection and try again.') : 'Check your local connection.', button('Try again', bootstrap)))); }
+  catch (error) {
+    if (error.status === 401) {
+      if (Api.mode === 'local') {
+        try { if ((await Api.request('/api/auth/setup-status')).setup_required) return renderLocalSetup(); } catch {}
+      }
+      return renderLogin();
+    }
+    shellBuilt = false; app.replaceChildren(el('main', { class: 'main' }, empty(Api.mode === 'cloud' ? (['CLOUD_CONFIGURATION_REQUIRED', 'CLOUD_SCHEMA_REQUIRED', 'UNSAFE_DATABASE_ROLE'].includes(error.code) ? 'Cloud setup is incomplete' : 'HomeAuto is unavailable') : 'Home hub unavailable', Api.mode === 'cloud' ? (['CLOUD_CONFIGURATION_REQUIRED', 'CLOUD_SCHEMA_REQUIRED', 'UNSAFE_DATABASE_ROLE'].includes(error.code) ? 'Ask the home owner to finish cloud setup.' : 'Check your internet connection and try again.') : 'Check your local connection.', button('Try again', bootstrap))));
+  }
 }
 await bootstrap();

@@ -1,5 +1,7 @@
 # HomeAuto 2.0
 
+Moving to another laptop? Follow [setup.md](setup.md) for the complete Windows installation, first launch, ESP32/MQTT commissioning, optional local speech/face model trials, backup and troubleshooting guide.
+
 Current voice architecture (2026-11-15): the browser uses Web Speech recognition and synthesis. The local hub validates recognized text over an authenticated WebSocket and owns device execution. No HomeAuto speech model or Python environment is required. The hub must remain running for controls. Browser recognition may require internet; this voice mode is not guaranteed offline. The earlier [hub AI execution plan](docs/cloud/HUB_AI_EXECUTION_PLAN.md) is retained as historical planning, not the active speech implementation.
 
 This repository contains two supported runtimes: the offline household hub and
@@ -25,26 +27,21 @@ The software has isolated tests and real cloud signup/auth checks. Physical hous
 blocked on supervised firmware/broker/door safety checks and human speech and
 accessibility trials. See [implementation journal](HomeAuto_UIUX_Docs/IMPLEMENTATION_JOURNAL.md).
 
-## Run the isolated preview
+## Start HomeAuto and connect hardware
+
+Install Node.js 22 and the dependencies with `npm ci --ignore-scripts` and `npm ci --ignore-scripts --prefix server`. On Windows, double-click **Start-HomeAuto.bat**. It starts the authenticated hardware hub on port 3001 and opens `http://127.0.0.1:3001/modules`. Closing the launcher window leaves the hub running. If Node.js 22 is outside PATH, set `HOMEAUTO_NODE` to its `node.exe` path. Startup logs are in `.local/launcher`.
+
+On a new laptop, choose a local owner username and password in the one-time setup form. Then use **Modules** to configure the hub's MQTT broker connection, reconnect it, configure the camera's LAN address and inspect controller/sensor status. Configure controller Wi-Fi and its MQTT credentials in the ESP32 firmware. The broker must already be running and support the required authentication and TLS settings.
+
+A successful broker connection alone does not enable the assistant or home controls. A supported ESP32 controller must supply fresh, non-retained reports. On disconnect, assistant requests are rejected and the UI returns to controller setup. Modules and owner authentication remain available during an outage. The camera and individual sensors are optional and show their own warnings. Camera network reachability is displayed separately from verified video. Actual CP-E31A capture and face/vehicle recognition remain pending camera compatibility verification.
+
+Normal startup and online onboarding use real hardware. Development fixtures are retained only for automated tests. Runtime module configuration is encrypted under the current Windows user using DPAPI, or with a user-private AES key on other supported Node systems. Passwords are never returned by the Modules API. The hardware database is durable and existing door permissions and physical commissioning gates still apply.
 
 Open Assistant and select **Start conversation** for repeated turns, or tap the microphone for one request. Browser speech output finishes before listening resumes, with a 350ms quiet buffer. **End conversation**, navigation, hiding the tab, typing or microphone/network errors stop the automatic session.
 
 Choose English or Hindi for recognition. Automatic listening follows the app language because standard browser recognition accepts one language; automatic replies follow the recognized words even when the decoder hint differs. Keep Reply language on Automatic to match each request. Hindi output needs an available Hindi voice. Speech support and latency depend on the browser and its provider; zero latency and offline recognition are not promised.
 
 The [browser conversation report](docs/verification/BROWSER_VOICE_ASSISTANT.md) describes the current architecture and acceptance evidence. Greetings, home controls, current status and capability guidance use the existing bounded English/Hindi parser. Try “What can you do?” or “कृपया लाइट दो चालू करो.” General knowledge questions remain outside scope; no LLM or cloud Live API is used.
-
-```powershell
-Set-Location Homeauto
-npm ci --ignore-scripts
-npm ci --ignore-scripts --prefix server
-Set-Location server
-npm run preview:isolated
-```
-
-Open http://localhost:3001. The preview opens directly without login, account or
-sign-out options. The visible Simulation banner identifies the in-memory fixture.
-This process never opens a real MQTT connection or production database. Ctrl+C
-stops it. Browser voice needs a supported browser on localhost or HTTPS and microphone permission; no model download is needed. Authentication remains enabled for the separate physical-device runtime.
 
 Manual mic clicks never require a wake word. For hands-free activation, enable **Settings → Voice & assistant → Enable wake-word listening**. Say Shrimaan, Shreeman or Shiman while the page is visible. Idle listening pauses for speech output and resumes after a quiet buffer. **Stop wake listening** stops it. The option persists, but refresh/backgrounding never silently reopens the microphone. Browser recognition may send ambient audio to its provider.
 

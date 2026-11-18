@@ -8,6 +8,9 @@ const { Sessions } = require('./auth/sessions');
 const { Home } = require('./services/home');
 const { Assistant } = require('./services/assistant');
 const { BrowserSpeechService } = require('./voice/browser-speech-service');
+const { CameraService } = require('./camera/service');
+const { ModuleStore } = require('./modules/store');
+const { ModuleService } = require('./modules/service');
 const { createApp } = require('./app');
 const { attachRealtime } = require('./realtime');
 const { connectBroker } = require('./mqtt/broker');
@@ -25,33 +28,52 @@ function loadConfig(env = process.env) {
     ALLOWED_HOSTS: (env.HOMEAUTO_ALLOWED_HOSTS || 'localhost,127.0.0.1,[::1]').split(',').map(s => s.trim()),
     MQTT_ENABLED: env.HOMEAUTO_MQTT_ENABLED === '1', MQTT_BROKER: env.HOMEAUTO_MQTT_BROKER || 'mqtts://localhost:8883', MQTT_USERNAME: env.HOMEAUTO_MQTT_USERNAME, MQTT_PASSWORD: env.HOMEAUTO_MQTT_PASSWORD, MQTT_CA: env.HOMEAUTO_MQTT_CA,
     DOOR_ENABLED: env.HOMEAUTO_DOOR_ENABLED === '1', VOICE_ENABLED: env.HOMEAUTO_VOICE_ENABLED !== '0',
+    CAMERA_MODE: env.HOMEAUTO_CAMERA_MODE || 'disabled',
+    MODULES_PATH: env.HOMEAUTO_MODULES_PATH || path.join(local, 'modules.enc.json'),
   };
 }
 async function startRuntime(config = loadConfig(), overrides = {}) {
   const secure = fs.existsSync(config.KEY_PATH) && fs.existsSync(config.CERT_PATH);
   if (!['127.0.0.1', 'localhost', '::1'].includes(config.HOST) && !secure) throw new Error('LAN binding requires newly provisioned TLS certificate/key outside source.');
   const repo = overrides.repo || await createRepository({ filename: config.DB_PATH, sync: config.CLOUD_SYNC, gateway: config.GATEWAY });
-  let speech, broker, realtime, server, timer, maintenanceTimer, syncWorker, gatewayWorker, closed = false;
+  let speech, camera, broker, realtime, server, timer, maintenanceTimer, syncWorker, gatewayWorker, closed = false;
   try {
     const home = overrides.home || new Home(repo, { allowDoor: config.DOOR_ENABLED });
+    home.hardwareRequired = !home.simulation;
     const sessions = overrides.sessions || new Sessions(repo, { secure });
     const assistant = new Assistant(home); speech = overrides.speech || new BrowserSpeechService(home, assistant, config);
+    camera = new CameraService({ mode: config.CAMERA_MODE, simulation: home.simulation, now: () => home.now() });
+    let reconnecting = false;
+    const modules = new ModuleService({ home, config,
+      store: overrides.moduleStore || new ModuleStore(config.MODULES_PATH || path.join(__dirname, '../.local/modules.enc.json')),
+      reconnect: async () => {
+        if (closed || reconnecting) throw Error('Module connection unavailable');
+        reconnecting = true;
+        try {
+          home.setConnected(false);
+          if (home.simulation) return;
+          await broker?.close();
+          if (!closed) broker = connectBroker(home, config);
+        } finally { reconnecting = false; }
+      },
+    });
     if (config.CLOUD_SYNC) syncWorker = createSyncWorker(repo, config.CLOUD_SYNC);
     if (config.GATEWAY) gatewayWorker = createGatewayWorker(home, config.GATEWAY);
-    const app = createApp({ repo, home, sessions, assistant, speech, config, cloudStatus: () => config.GATEWAY ? gatewayStatus(repo,true) : syncStatus(repo, !!config.CLOUD_SYNC) });
+    const app = createApp({ repo, home, sessions, assistant, speech, camera, modules, config, cloudStatus: () => config.GATEWAY ? gatewayStatus(repo,true) : syncStatus(repo, !!config.CLOUD_SYNC) });
     server = secure ? https.createServer({ key: fs.readFileSync(config.KEY_PATH), cert: fs.readFileSync(config.CERT_PATH) }, app) : http.createServer(app);
     realtime = attachRealtime(server, { app, home, sessions, assistant, speech });
     broker = overrides.broker || connectBroker(home, config);
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(config.PORT, config.HOST, resolve); });
     speech.start?.();
+    camera.start();
     syncWorker?.start();
     gatewayWorker?.start();
     try { maintain(repo); } catch { home.fault = 'MAINTENANCE_UNAVAILABLE'; }
     maintenanceTimer = setInterval(() => { try { maintain(repo); } catch { home.fault = 'MAINTENANCE_UNAVAILABLE'; home.emitChange(); } }, 86400000); maintenanceTimer.unref();
     timer = setInterval(() => { try { home.expire(); speech.prune?.(); home.emitChange(); } catch { home.fault = 'PERSISTENCE_UNAVAILABLE'; } }, 5000); timer.unref();
-    return { app, server, repo, home, sessions, speech, assistant,
-      async stop() { if (closed) return; closed = true; gatewayWorker?.stop(); syncWorker?.stop(); clearInterval(timer); clearInterval(maintenanceTimer); realtime.close(); speech.close?.(); try { await broker.close(); } finally { await new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }); repo.close(); } },
+    return { app, server, repo, home, sessions, speech, assistant, camera, modules,
+      async stop() { if (closed) return; closed = true; camera.close(); gatewayWorker?.stop(); syncWorker?.stop(); clearInterval(timer); clearInterval(maintenanceTimer); realtime.close(); speech.close?.(); try { await broker.close(); } finally { await new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }); repo.close(); } },
     };
-  } catch (error) { gatewayWorker?.stop(); syncWorker?.stop(); clearInterval(timer); clearInterval(maintenanceTimer); realtime?.close(); speech?.close?.(); await broker?.close(); server?.close(); repo.close(); throw error; }
+  } catch (error) { camera?.close(); gatewayWorker?.stop(); syncWorker?.stop(); clearInterval(timer); clearInterval(maintenanceTimer); realtime?.close(); speech?.close?.(); await broker?.close(); server?.close(); repo.close(); throw error; }
 }
 module.exports = { startRuntime, loadConfig };

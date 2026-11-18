@@ -1,5 +1,17 @@
 # UI and UX refinement
 
+## Deployed layout and Serene Emerald — 2026-11-18
+
+The user prefers the deployed site's layout to the later laptop redesign, and explicitly selected the earlier Serene Emerald palette. Public deployed `css/app.css` was compared with commit `5e0a040` and matched after newline normalization (SHA-256 `5a5771a9616bde9db9f7cdc9208253e6f39449367c6a3c9458eabaab700702cb`). This establishes the visual baseline without relying on an assumed deployment name.
+
+The local application now uses that deployed layout in `public/css/deployed-layout.css`, with the existing four semantic palettes and Theme05 default. Serene Emerald retains the requested light `#F3F3EC` background, white surfaces and `#225C43` green accents. The deployed Home, Rooms, device/door, activity, access-card, alert, Settings and auth compositions were restored. Before replacing presentation functions, an AST comparison verified that they had no subsequent functional edits. Shell header presentation follows the same baseline.
+
+Current recognition, bilingual replies, browser voice settings, chat, wake listener, navigation/history and state-transition safeguards remain in their current coordinator/service code. A small `assistant-enhancements.css` layer keeps chat, loading and microphone controls usable within the deployed layout. No firmware, device communication or backend changes were made. Theme selection and browser preferences retain their existing storage keys.
+
+Evidence: `D:/homeauto-audit-tools/emerald-layout-20261118`. Full regression: 261 passed, 0 failed/skipped (`regression.log`). Browser voice/chat/wake acceptance: 12 groups and 16 theme/language/width captures passed, with zero page errors/external requests (`browser/results.json`); the run also captures Voice settings for each combination. Broad UX/navigation: 30 groups passed with zero page errors (`ux.log`, `ux-results.json`). A separate visual pass captured Home, Rooms, Security, Assistant and Settings in all four themes at 320/1280 px: 40 captures, zero overflow, page errors or selected axe contrast/button-name/label violations (`visual-results.json`). Emerald Rooms mobile/desktop screenshots were visually inspected. Cloud boundary build: passed, 458 traced files and zero native hub files. Native in-app browser inspection confirmed the Rooms layout with Theme05 and the intended computed colors. `git diff --check` passed. All interaction checks used isolated simulated hardware.
+
+This is a local implementation; the live site has not been redeployed by this task. Git publication and unrelated desktop-launcher changes are separate. The Vercel metadata connector returned a team-scope restriction, so the public static files and matching Git source were used for the comparison.
+
 ## Cloud signup continuation — 2026-11-07
 
 Added a dedicated cloud `/signup` page and a visible Create account link on sign-in. Both screens share the existing auth layout, semantic theme tokens, native-font typography and mobile safe-area spacing. Signup adds accessible name/username/password/confirmation fields, explicit helper associations, visibility controls, localized errors, pending feedback and a separate sign-in success notice. Language switching preserves live drafts without persisting passwords; all four palettes and Theme05 default remain.

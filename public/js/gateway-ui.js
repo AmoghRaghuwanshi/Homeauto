@@ -6,10 +6,10 @@ import { state } from './state.js';
 const heading=pageHeader;
 export function welcomeHome(ctx) {
   const owner=state.session.user.role==='owner';
-  return el('div',{class:'stack onboarding-page'},heading('Set up your home','Your account is ready. Connect your home hub, or explore a demo with simulated devices.'), el('div',{class:'welcome-steps','aria-hidden':'true'},el('span',{class:'welcome-step-complete'},icon('check'),'1. ',t('Your details')),el('span',{},'2. ',t('Home gateway')),el('span',{},'3. ',t('Devices'))),
-    el('div',{class:'onboarding-options'},el('section',{class:'card stack onboarding-primary gateway-owner-action'},icon('home'),el('h2',{},t('Connect your gateway')),el('p',{},t('Link the home hub that runs your local HomeAuto installation. Your devices will appear after its first report.')),owner?link('Connect gateway','/settings/gateway','button button-primary'):el('p',{class:'muted'},t('Ask the home owner to connect a gateway.'))),
-      el('section',{class:'card stack'},icon('bulb'),el('h2',{},t('Explore a demo home')),el('p',{},t('Try lights, rooms, sensors and Shrimaan without connecting hardware. Everything in the demo is simulated.')),button('Explore demo home',ctx.startDemo,{kind:'secondary'}))),
-    el('section',{class:'card stack'},el('h2',{},t('Built for local control')),el('p',{},t('The home hub controls your devices on your home network. The online app shows what the gateway reports.')),el('p',{class:'small muted'},t('For a project presentation, explore the online demo and demonstrate the real devices through your offline hub.'))));
+  return el('div', { class: 'stack onboarding-page' }, heading('Set up your home', 'Connect your home hub and ESP32 to start.'),
+    el('section', { class: 'card stack' }, el('h2', {}, t('Connect your gateway')),
+      el('p', {}, t('Your devices will appear after the gateway receives current controller reports.')),
+      owner ? link('Connect gateway', '/settings/gateway', 'button button-primary') : el('p', {}, t('Ask the home owner to connect a gateway.'))));
 }
 function downloadConfig(config) {
   const blob=new Blob([JSON.stringify(config,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);
@@ -38,6 +38,5 @@ export async function gatewayView(ctx) {
     view.append(el('div',{class:'row row-wrap'},button(setup.registered?'Replace setup file':'Create connection file',prepare,{kind:'primary',symbol:'home'}),button('Check connection',()=>ctx.run(ctx.refresh),{kind:'secondary',symbol:'wifi'})));
   }else view.append(button('Check connection',()=>ctx.run(ctx.refresh),{symbol:'wifi'}));
   if(['offline','revoked','connected'].includes(setup.state))view.append(el('p',{class:'warning-note'},t('An existing gateway is registered. Key renewal or replacement is handled by the local operator to protect the connected home.')));
-  view.append(el('section',{class:'card stack'},el('h2',{},t('Presenting without hardware?')),el('p',{},t('The demo home works independently of your gateway. It never sends physical commands.')),button('Explore demo home',ctx.startDemo,{kind:'secondary'})));
   return view;
 }
