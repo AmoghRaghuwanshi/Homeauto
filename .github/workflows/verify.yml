@@ -17,6 +17,7 @@ env:
 jobs:
   secrets:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,6 +42,11 @@ jobs:
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner .
   software:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      # Match server/package-lock.json; browsers and Linux libraries are preinstalled.
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      options: --init --ipc=host
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -57,7 +63,8 @@ jobs:
       - run: npm run build
       - run: node scripts/check-syntax.js
       - run: npm test
-      - run: npm exec --prefix server -- playwright install --with-deps chromium
+      - name: Verify preinstalled test browsers
+        run: node -e "const fs=require('node:fs'); const {chromium,webkit}=require('./server/node_modules/playwright'); for(const browser of [chromium,webkit]) if(!fs.existsSync(browser.executablePath())) throw new Error('Pinned browser image does not match the package lock');"
       - run: npm --prefix server run test:ux
       - run: npm --prefix server run test:remediation
       - run: npm --prefix server run test:modules-browser
@@ -71,6 +78,10 @@ jobs:
           retention-days: 3
   mobile:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      options: --init --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -85,7 +96,8 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci --ignore-scripts --prefix server
-      - run: npm exec --prefix server -- playwright install --with-deps ${{ matrix.browser }}
+      - name: Verify preinstalled test browsers
+        run: node -e "const fs=require('node:fs'); const {chromium,webkit}=require('./server/node_modules/playwright'); for(const browser of [chromium,webkit]) if(!fs.existsSync(browser.executablePath())) throw new Error('Pinned browser image does not match the package lock');"
       - run: npm --prefix server run test:mobile -- --browser=${{ matrix.browser }}
       - run: npm --prefix server run test:signup -- --browser=${{ matrix.browser }}
       - run: npm --prefix server run test:onboarding -- --browser=${{ matrix.browser }}
