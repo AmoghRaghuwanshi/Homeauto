@@ -64,6 +64,8 @@ The fresh clone's `origin` should be `Mishrajishri/home-sec-auto`, even though t
 
 If you downloaded a ZIP instead, extract it completely before launching. Git is preferable because updates use `git pull` and the publication check uses Git's tracked-file list. Do not launch inside the ZIP viewer.
 
+For an existing clone on the other laptop, run `git remote get-url origin` and confirm it points to `https://github.com/Mishrajishri/home-sec-auto.git`. Then inspect `git status --short` and, once local work is preserved, run `git pull --ff-only origin main`. If it points to `AmoghRaghuwanshi/Homeauto` or another repository, it will not receive this handoff from that origin; use the fresh clone command above in a new folder. Do not overwrite local work or force-reset the old checkout. GitHub's red/green Actions icon describes automated checks after an upload; it does not establish whether the source files were uploaded. Both the remote commit and its checks need verification.
+
 ## 4. Install the application dependencies
 
 Run from the repository root, the folder containing `Start-HomeAuto.bat`:

@@ -11,4 +11,4 @@
 .button[aria-busy="true"]>.button-label,.button[aria-busy="true"]>.button-icon{opacity:0;}
 [hidden]{display:none!important;}
 .camera-preview img{display:block;width:100%;max-width:320px;height:auto;border-radius:var(--radius-control);}
-@media(max-width:767px){.assistant-stage .voice-language-note,.assistant-stage .live-conversation-controls,.assistant-stage #assistant-setup-note{grid-column:1/-1;}.assistant-stage .live-conversation-controls{width:100%;}.assistant-stage #live-conversation-toggle{width:100%;}}
+@media(max-width:767px), (max-width:1023px) and (max-height:500px) and (hover:none) and (pointer:coarse){.assistant-stage .voice-language-note,.assistant-stage .live-conversation-controls,.assistant-stage #assistant-setup-note{grid-column:1/-1;}.assistant-stage .live-conversation-controls{width:100%;}.assistant-stage #live-conversation-toggle{width:100%;}}
