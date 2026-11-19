@@ -1,6 +1,6 @@
 import { Api } from './api.js';
 import { state } from './state.js';
-import { el, button, field, pageHeader, status, link } from './components.js';
+import { el, button, field, pageHeader, status, link, modal } from './components.js';
 import { t, dateText, errorText } from './i18n.js';
 
 export function hardwareWaiting() {
@@ -8,13 +8,56 @@ export function hardwareWaiting() {
     el('section', { class: 'card stack', role: 'status' },
       el('h2', {}, t('Waiting for ESP32')),
       el('p', {}, t('Connect the controller to enable home controls and the assistant.')),
-      link('Modules', '/modules', 'button button-primary')));
+      link('Modules', '/modules', 'button button-primary'),
+      el('p', { class: 'small muted' }, t('For simulation without an ESP32, run Start-HomeAuto.bat and open port 3002.'))));
+}
+
+async function simulationModules(ctx) {
+  const view = el('div', { class: 'settings-wrap stack' }, pageHeader('Modules', 'Simulation controls'));
+  view.append(el('section', { class: 'card stack' }, status('Simulation only'),
+    el('p', {}, t('Devices run in memory. No MQTT broker, ESP32 or household database is connected.')),
+    el('p', { class: 'small muted' }, t('Device changes reset when the simulation server restarts. Browser speech may require internet.'))));
+  const scenario = kind => ctx.run(async () => { await Api.request('/api/simulation/scenario', { method: 'POST', body: { scenario: kind } }); await ctx.refresh(); ctx.notify(t('Simulation updated')); });
+  view.append(el('section', { class: 'card stack' }, el('h2', {}, t('Try a sensor scenario')),
+    el('div', { class: 'row row-wrap' }, button('Simulate gas alert', () => scenario('gas')), button('Simulate motion', () => scenario('motion')), button('Clear scenario', () => scenario('clear'), { kind: 'secondary' })),
+    link('View alerts', '/security/alerts', 'button button-secondary')));
+  let camera;
+  try { camera = await Api.request('/api/camera/status'); }
+  catch (error) { view.append(el('p', { class: 'form-error', role: 'alert' }, errorText(error))); return view; }
+  const cameraSection = el('section', { class: 'card stack camera-preview' }, el('h2', {}, t('Camera simulation')),
+    status(camera.state === 'live' ? 'Test frame available' : camera.state === 'stale' ? 'Test frame is stale' : 'Test camera unavailable'),
+    el('p', {}, t('Generated test images only. This is not video from your CP Plus camera.')),
+    el('p', { class: 'small muted' }, t('Camera microphone and speaker access have not been verified.')));
+  const preview = button('Preview test camera', () => {
+    const frame = el('div', { role: 'status' }, t('Loading…'));
+    const content = el('div', { class: 'stack camera-preview' }, el('p', {}, t('Generated test images only. This is not video from your CP Plus camera.')), frame);
+    // Open before the asynchronous status read so the real button owns return focus.
+    const dialog = modal('Camera simulation', content, { readOnly: true, confirmLabel: 'Close' });
+    ctx.run(async () => {
+      try {
+        const current = await Api.request('/api/camera/status');
+        if (!dialog.isConnected || !dialog.open) return;
+        if (current.state === 'live') {
+          const image = el('img', { src: '/api/camera/frame?generation=' + encodeURIComponent(current.generation), alt: t('Generated camera test image') });
+          image.addEventListener('error', () => image.replaceWith(el('p', { class: 'form-error', role: 'alert' }, t('Test camera unavailable'))), { once: true });
+          frame.replaceChildren(image);
+        } else frame.replaceChildren(el('p', {}, t('Test camera unavailable')));
+      } catch (error) { if (dialog.isConnected) frame.replaceChildren(el('p', { class: 'form-error', role: 'alert' }, errorText(error))); }
+    });
+  }, { id: 'simulation-camera-preview', disabled: camera.state !== 'live' });
+  cameraSection.append(preview, el('div', { class: 'row row-wrap' }, [['live','Restore test camera'], ['offline','Simulate camera offline'], ['stale','Simulate stale frame'], ['fault','Simulate camera failure']].map(([kind,label]) => button(label, () => ctx.run(async () => {
+    await Api.request('/api/camera/fixture', { method: 'POST', body: { scenario: kind } }); await ctx.render();
+  }), { kind: 'secondary', disabled: !camera.simulated }))),
+    el('p', { class: 'small muted' }, t('Real camera setup stays separate. Use Start-HomeAuto-Hardware.bat to open Modules on port 3001.')));
+  view.append(cameraSection);
+  return view;
 }
 
 export async function modulesPage(ctx) {
   const view = el('div', { class: 'settings-wrap stack' }, pageHeader('Modules', 'Connect and configure your home hardware'));
   if (Api.mode === 'cloud') return el('div', { class: 'settings-wrap stack' }, pageHeader('Modules'),
     el('p', {}, t('Configure modules on the local home hub.')), link('Home gateway', '/settings/gateway', 'button button-primary'));
+  if (state.snapshot.system.simulation && state.session.user.role === 'owner') return simulationModules(ctx);
   if (state.session.user.role !== 'owner') {
     view.append(el('p', {}, t('Ask the home owner to configure modules.')));
     return view;

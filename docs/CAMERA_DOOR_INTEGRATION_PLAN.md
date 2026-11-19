@@ -1,6 +1,24 @@
 # CP Plus CP‑E31A camera and door integration plan
 
-2026-11-18 · Implementation started
+2026-11-19 · Local ONVIF commissioning and isolated simulation
+
+## Current direction and verified camera metadata
+
+The user has temporarily restored simulation while the ESP32 is unfinished. `Start-HomeAuto.bat` opens the isolated in-memory simulation on loopback port 3002; `Start-HomeAuto-Hardware.bat` retains the real hub on 3001. Modules in simulation provides generated camera frames, live/stale/offline/fault scenarios and simulated sensors. These never connect to a real camera, MQTT or the durable household DB. The real hub's Modules page stays available without an ESP32 for deliberately configured camera reachability checks.
+
+With the user's CP-E31A on the same phone hotspot, bounded local discovery matched the supplied camera MAC to a private IPv4 address. Before ONVIF was enabled, it did not answer discovery or the tested default service ports. After the user enabled ONVIF, WS-Discovery returned the device service on port **8000**. A read-only GetCapabilities call succeeded; authenticated GetProfiles accepted the camera's fixed **admin** account and user-supplied ONVIF password. Two profiles advertise **H.264 video** and **G.711 microphone audio**. GetStreamUri returned an RTSP URI on port **5543**. These are measurements for this unit/firmware, not defaults guaranteed for every CP Plus model. Do not substitute a guessed RTSP path or default port.
+
+Credentials were entered through a hidden prompt and held in process memory, not source or output. Private camera IP/MAC, SOAP capability responses and redacted metadata results remain under ignored `.local/qa/simulation-return`. No actual camera video or audio was recorded, no PTZ/control operation was issued, and no door action was sent during discovery/metadata checks. The camera's actual video playback, decoded microphone audio and speaker talkback are **not yet verified**. A generated fixture preview must never be presented as this camera's video or face-recognition evidence.
+
+### Video, microphone and speaker are distinct integration paths
+
+1. **Video:** the local hub authenticates against the discovered media service, obtains the profile's URI and consumes its RTSP stream. A bounded decoder/relay then supplies a browser-supported presentation. Browser JavaScript cannot treat an arbitrary Wi-Fi camera as a directly attached webcam or rely on native RTSP playback. Prefer a low-latency authenticated WebRTC relay after testing this exact H.264 profile; keep decoding away from the command/event loop.
+2. **Camera microphone:** audio arrives as a separate track in the camera's media stream when that profile actually carries it. Verify packets and playback before showing a microphone-connected state. G.711 may need conversion or compatible negotiation for the chosen browser transport. Feeding it into the assistant is separate work involving explicit listening controls, endpointing and echo prevention; current voice input remains the laptop/browser microphone.
+3. **Camera speaker:** do not assume that receiving audio means the speaker can be controlled. Inspect ONVIF AudioOutput/backchannel support and test only an advertised, authenticated path. ONVIF Profile T describes bidirectional audio where supported, but does not establish conformance by this camera. ezyKam+ talkback may use a vendor-specific interface. Keep talkback unavailable until a supported path and actual playback are verified.
+
+For later access, keep the local hub and camera on a reachable LAN, reserve the camera's private IP if the network permits it, and enter its local credentials in private hub configuration when the authenticated stream adapter is implemented. Do not send passwords, cloud account access or pairing QR codes in chat, and do not forward camera ports to the internet. A phone hotspot can isolate clients or change addresses after reconnection. Use a known private VPN path for remote commissioning only if it is explicitly configured and authorized; sharing the internet-facing address alone does not grant local camera access.
+
+Implementation still needs a credential-aware media adapter, protected browser relay, genuine stream freshness/codec checks and separate talkback capability handling. Face recognition and automatic physical unlock remain later, independently gated work.
 
 > Updated user direction, 2026-11-18. Normal application startup now uses the hardware runtime and the Modules page on port 3001. Camera simulation UI and its standalone launch command were retired. The generated frame source remains a test fixture. Local model/assistant functionality requires a fresh ESP32 connection. Camera configuration is optional and currently supports saved LAN settings and reachability checks, with explicit unverified video status. The following Stage 1 fixture checkpoint records the preceding implementation. See `docs/DEVELOPMENT_STATE.md` for current verification and deployment state.
 

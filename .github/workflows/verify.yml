@@ -70,6 +70,7 @@ jobs:
       - run: npm --prefix server run test:ux
       - run: npm --prefix server run test:remediation
       - run: npm --prefix server run test:modules-browser
+      - run: npm --prefix server run test:simulation-browser
       - run: npm --prefix server run test:browser-conversation
       - run: node server/scripts/online-browser-check.js
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

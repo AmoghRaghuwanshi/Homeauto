@@ -88,6 +88,16 @@ function createApp({ repo, home, sessions, assistant, speech, camera = new Camer
     if (!modules || !['esp32', 'camera'].includes(req.params.kind)) fail('NOT_FOUND', 404);
     res.json(await modules.connect(req.params.kind));
   }));
+  app.post('/api/simulation/scenario', (req, res) => {
+    authorize(req.actor, 'owner');
+    if (!home.simulation) fail('SIMULATION_REQUIRED', 409);
+    fields(req.body, ['scenario'], ['scenario']);
+    if (!['gas', 'motion', 'clear'].includes(req.body.scenario)) fail('VALIDATION_ERROR');
+    const scenario = req.body.scenario;
+    home.ingest('home/sensor/gas/data', Buffer.from(JSON.stringify({ raw: scenario === 'gas' ? 600 : 220, gas_ppm: scenario === 'gas' ? 600 : 53, alert: scenario === 'gas' })));
+    home.ingest('home/sensor/motion/data', Buffer.from(JSON.stringify({ motion: scenario === 'motion' })));
+    res.json({ simulated: true, scenario });
+  });
   app.get('/api/camera/status', (req, res) => {
     authorize(req.actor, 'owner');
     res.json(camera.status());

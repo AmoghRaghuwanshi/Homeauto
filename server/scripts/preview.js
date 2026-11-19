@@ -45,7 +45,7 @@ async function createPreview({ port = 0, voice = false, loginRequired = false, c
   return { runtime, credentials, url: 'http://127.0.0.1:' + runtime.server.address().port };
 }
 if (require.main === module) {
-  console.error('Simulation startup has been retired. Use Start-HomeAuto.bat to open the hardware hub and Modules page.');
+  console.error('This is a test fixture. Use Start-HomeAuto.bat or npm run simulation for simulation; Start-HomeAuto-Hardware.bat opens the real hub.');
   process.exitCode = 1;
 }
 module.exports = { createPreview };

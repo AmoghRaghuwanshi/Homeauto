@@ -1,26 +1,27 @@
 # HomeAuto: setup on another Windows laptop
 
-Updated: 2026-11-18. Source: [Mishrajishri/home-sec-auto](https://github.com/Mishrajishri/home-sec-auto), branch `main`.
+Updated: 2026-11-19. Source: [Mishrajishri/home-sec-auto](https://github.com/Mishrajishri/home-sec-auto), branch `main`.
 
-This is the installation guide for the current source, including the hardware-first launcher and Modules page. Follow sections 1–8 for the application, then the relevant hardware and optional model sections. Commands use Windows PowerShell, with `npm.cmd` to avoid PowerShell's npm script execution-policy issue. Run normal project commands without administrator privileges. Follow each step in order and stop if it fails.
+This is the installation guide for the current source, including separate simulation and hardware launchers and the Modules page. Follow sections 1–8 for the application, then the relevant hardware and optional model sections. Commands use Windows PowerShell, with `npm.cmd` to avoid PowerShell's npm script execution-policy issue. Run normal project commands without administrator privileges. Follow each step in order and stop if it fails.
 
 ## 1. Know what this release includes
 
 | Component | What you get after cloning |
 |---|---|
 | Frontend and backend | Local Node/Express server, static UI, local database, authenticated WebSocket, four themes, English/Hindi UI |
-| Launching | `Start-HomeAuto.bat` starts the hardware hub at `http://127.0.0.1:3001/modules` |
+| Simulation launcher | `Start-HomeAuto.bat` starts an in-memory simulated home at `http://127.0.0.1:3002/`, without an ESP32 or owner setup |
+| Hardware launcher | `Start-HomeAuto-Hardware.bat` starts the real hub at `http://127.0.0.1:3001/modules` |
 | First local account | One-time owner setup in the local browser; separate from an account on the public website |
 | Hardware | Modules page for MQTT settings/reconnect, board/sensor status and optional camera LAN reachability |
 | Assistant | Bounded English/Hindi home commands and conversation; browser Web Speech input/output |
-| Real-device requirement | Controls and assistant wait for a fresh supported ESP32 report; broker connectivity alone is insufficient |
+| Real-device requirement | In hardware mode, controls and assistant wait for a fresh supported ESP32 report; broker connectivity alone is insufficient |
 | Local speech models | Not connected to the app. Section 12 provides a separate, optional Piper output trial |
 | Face recognition | Not connected to the app or lock. Section 13 provides separate model preparation and a two-photo comparison trial |
 | GPU | Not required or used by the current browser speech implementation; section 11 checks the new laptop's GPU |
 
 There is no general-purpose LLM, Live API, automatic face unlock, integrated Piper worker, or guaranteed sub-100 ms voice response in this release. Installing optional models does not change the app's active speech provider. The current assistant only answers supported home questions and commands.
 
-The UI opens for owner/module setup without an ESP32. Home controls and assistant remain unavailable until an actual controller is connected. Missing optional camera/sensors do not disable otherwise valid ESP32 controls. Development fixtures remain in automated tests; the normal launcher does not run a simulated home.
+The real hub opens for owner/module setup without an ESP32. Its home controls and assistant remain unavailable until an actual controller is connected. Missing optional camera/sensors do not disable otherwise valid ESP32 controls. The separate simulation works without hardware and displays a simulation banner. Its generated camera image, sensor scenarios and device states never become evidence for real hardware.
 
 ## 2. Prepare the new laptop
 
@@ -98,17 +99,25 @@ The build command verifies cloud packaging boundaries; it does not start the loc
 
 For a fresh loopback installation, leave `HOMEAUTO_HOST`, TLS paths, gateway/cloud variables and custom database paths unset. Do not copy a populated production `.env` to the new laptop. This server does **not** automatically load `.env` files.
 
-Double-click `Start-HomeAuto.bat` in the repository, or run:
+### Simulation while the ESP32 is unfinished
+
+Double-click `Start-HomeAuto.bat` to open `http://127.0.0.1:3002/`. No local owner setup or real device is needed in this isolated mode. Try Home, Rooms, Security and Assistant. Browser microphone input/output use the existing Web Speech implementation and may require internet. In Modules, try gas/motion scenarios, preview the generated camera test image and simulate offline/stale/fault states. Camera microphone/speaker access is not simulated. Device changes are held in RAM and reset when the simulation server restarts. Browser theme/language preferences remain per origin.
+
+Simulation refuses real broker/camera configure and connect requests, ignores inherited hardware/cloud settings, and never opens the household database. It binds only to loopback. It does not test your actual ESP32 or CP Plus video/audio. To test actual camera reachability, use the separate hardware hub's Modules page, which remains available while the ESP32 is absent.
+
+### Real hardware and first owner
+
+Double-click `Start-HomeAuto-Hardware.bat` in the repository, or run:
 
 ```powershell
-.\Start-HomeAuto.bat
+.\Start-HomeAuto-Hardware.bat
 ```
 
-The launcher starts a hidden Node server and opens:
+The hardware launcher starts a hidden Node server and opens:
 
 **http://127.0.0.1:3001/modules**
 
-Closing the launcher's console does not stop the server. A second launch reuses a responding local hardware runtime on port 3001. The launcher does not install packages, start Mosquitto, flash the ESP32 or download models.
+Closing a launcher's console does not stop its server. A second launch reuses the matching runtime on its own port: simulation 3002 or hardware 3001. Neither launcher installs packages, starts Mosquitto, flashes the ESP32 or downloads models.
 
 On an empty local database:
 
@@ -147,7 +156,7 @@ $desktopPath = [Environment]::GetFolderPath('Desktop')
 $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $desktopPath 'Start HomeAuto.lnk'))
 $shortcut.TargetPath = Join-Path $projectRoot 'Start-HomeAuto.bat'
 $shortcut.WorkingDirectory = $projectRoot
-$shortcut.Description = 'Start the local HomeAuto hardware hub'
+$shortcut.Description = 'Start the local HomeAuto simulation'
 $shortcut.Save()
 ```
 
@@ -533,7 +542,7 @@ For a forgotten local password, stop the hub, then run `npm.cmd --prefix server 
 
 ## 16. Everyday startup, shutdown and updates
 
-**Start:** start your provisioned MQTT broker if it is not a service, power the commissioned ESP32, then use the desktop shortcut/BAT. Keep the controlling laptop awake and on the LAN. Reopen Modules to diagnose missing devices. The camera is optional.
+**Start simulation:** use the desktop shortcut or `Start-HomeAuto.bat` and open port 3002. No broker or ESP32 is required. **Start hardware:** start your provisioned MQTT broker if it is not a service, power the commissioned ESP32, then use `Start-HomeAuto-Hardware.bat`. Keep the controlling laptop awake and on the LAN. Reopen Modules to diagnose missing devices. The camera is optional.
 
 **Foreground alternative:** useful for diagnostics and clean Ctrl+C shutdown. Do not run it beside the BAT-started hub:
 
@@ -543,7 +552,7 @@ $env:HOMEAUTO_PORT = '3001'
 npm.cmd --prefix server start
 ```
 
-Leave that terminal open; press Ctrl+C to stop it. Direct `npm start` without the port variable defaults to 3000, while the BAT uses 3001. Use `127.0.0.1` consistently because changing origin changes cookies and browser preferences.
+Leave that terminal open; press Ctrl+C to stop it. Direct `npm start` without the port variable defaults to 3000, while the hardware BAT uses 3001. For a foreground simulation use `npm.cmd --prefix server run simulation`, which defaults to 3002. Use `127.0.0.1` consistently because changing origin changes cookies and browser preferences.
 
 **Stop a hidden BAT-started hub:** inspect `Get-NetTCPConnection -State Listen -LocalPort 3001`, then look up its `OwningProcess` with `Get-CimInstance Win32_Process -Filter 'ProcessId=THE_ACTUAL_PID'`. Verify that it is the HomeAuto Node server before `Stop-Process -Id THE_ACTUAL_PID`. This terminates the process; use foreground Ctrl+C when you need graceful shutdown for maintenance. Do not terminate all Node processes or remove a live DB lock. Stop/secure physical activity before maintenance; do not rely on hub shutdown to relock a door.
 
@@ -559,7 +568,7 @@ npm.cmd ci --ignore-scripts --prefix server
 if ($LASTEXITCODE -ne 0) { throw 'Server install failed.' }
 npm.cmd test
 if ($LASTEXITCODE -ne 0) { throw 'Updated tests failed.' }
-.\Start-HomeAuto.bat
+.\Start-HomeAuto-Hardware.bat
 ```
 
 If `git status` shows your edits, preserve/review them before pulling. Do not use `git reset --hard` or copy an old database over a newer one to fix an update. Cloning/pushing this repository does not redeploy the public website.
@@ -568,7 +577,7 @@ If `git status` shows your edits, preserve/review them before pulling. Do not us
 
 `localhost` always refers to the computer running that browser. On the presentation laptop, `127.0.0.1:3001` does not point to the GPU/hub laptop. Both machines need a reachable LAN and a trusted HTTPS hub endpoint for direct LAN browser/microphone use.
 
-The one-click BAT is deliberately for loopback HTTP. For LAN operation, stop it and provision fresh web TLS separately:
+Both launchers use loopback HTTP. The simulation remains loopback-only. For real hub LAN operation, stop the hardware hub and provision fresh web TLS separately:
 
 ```powershell
 # Replace the example IP with the hub's actual reserved private address.

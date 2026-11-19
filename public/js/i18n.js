@@ -1,5 +1,23 @@
 import { preferences } from './preferences.js';
 const hi = {
+  'Simulation controls': 'सिमुलेशन नियंत्रण',
+  'Simulation only': 'केवल सिमुलेशन',
+  'Devices run in memory. No MQTT broker, ESP32 or household database is connected.': 'उपकरण केवल मेमोरी में चलते हैं। कोई MQTT ब्रोकर, ESP32 या असली घर का डेटाबेस जुड़ा नहीं है।',
+  'Device changes reset when the simulation server restarts. Browser speech may require internet.': 'सिमुलेशन सर्वर दोबारा शुरू होने पर उपकरणों के बदलाव रीसेट हो जाते हैं। ब्राउज़र वॉइस के लिए इंटरनेट की ज़रूरत हो सकती है।',
+  'Simulation updated': 'सिमुलेशन अपडेट हुआ',
+  'Test frame available': 'टेस्ट फ़्रेम उपलब्ध है',
+  'Test frame is stale': 'टेस्ट फ़्रेम पुराना है',
+  'Test camera unavailable': 'टेस्ट कैमरा उपलब्ध नहीं है',
+  'Generated test images only. This is not video from your CP Plus camera.': 'केवल बनाई गई टेस्ट तस्वीरें। यह आपके CP Plus कैमरे का वीडियो नहीं है।',
+  'Camera microphone and speaker access have not been verified.': 'कैमरे के माइक्रोफ़ोन और स्पीकर का कनेक्शन अभी सत्यापित नहीं है।',
+  'Generated camera test image': 'बनाई गई कैमरा टेस्ट तस्वीर',
+  'Preview test camera': 'टेस्ट कैमरा देखें',
+  'Restore test camera': 'टेस्ट कैमरा वापस चालू करें',
+  'Simulate camera offline': 'कैमरा ऑफ़लाइन करके देखें',
+  'Simulate stale frame': 'पुराना फ़्रेम दिखाकर देखें',
+  'Simulate camera failure': 'कैमरे की खराबी दिखाकर देखें',
+  'Real camera setup stays separate. Use Start-HomeAuto-Hardware.bat to open Modules on port 3001.': 'असली कैमरे का सेटअप अलग है। पोर्ट 3001 पर मॉड्यूल खोलने के लिए Start-HomeAuto-Hardware.bat चलाएँ।',
+  'For simulation without an ESP32, run Start-HomeAuto.bat and open port 3002.': 'ESP32 के बिना सिमुलेशन के लिए Start-HomeAuto.bat चलाएँ और पोर्ट 3002 खोलें।',
   'Live chat': 'लाइव चैट',
   'Type or speak. Your chat stays in this tab until you clear it, refresh or switch homes.': 'लिखें या बोलें। चैट साफ़ करने, फिर से लोड करने या घर बदलने तक इसी टैब में रहेगी।',
   'Enable wake-word listening': 'जागने का शब्द सुनना चालू करें',
@@ -255,6 +273,8 @@ Object.assign(hi, {
 });
 export const t = value => preferences.language === 'hi' ? hi[value] || value : value;
 const errors = {
+  SIMULATION_ONLY: ['Real hardware connections are unavailable in simulation. Open the hardware hub to configure them.', 'सिमुलेशन में असली हार्डवेयर नहीं जोड़ा जा सकता। उसके लिए हार्डवेयर हब खोलें।'],
+  SIMULATION_REQUIRED: ['This action is available only in simulation.', 'यह कार्य केवल सिमुलेशन में उपलब्ध है।'],
   OWNER_ALREADY_CONFIGURED: ['A local owner is already configured. Refresh and sign in.', 'स्थानीय मालिक का खाता बन चुका है। पेज दोबारा लोड करके साइन इन करें।'],
   ESP32_REQUIRED: ['Connect your ESP32 before using home controls or the assistant.', 'घर के नियंत्रण या सहायक इस्तेमाल करने से पहले ESP32 जोड़ें।'],
   MQTT_TLS_REQUIRED: ['Use an mqtts:// address for a broker on another device.', 'दूसरे उपकरण के ब्रोकर के लिए mqtts:// पता इस्तेमाल करें।'],
