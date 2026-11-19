@@ -30,9 +30,15 @@ async function main() {
     await page.getByLabel('MQTT broker URL', { exact: true }).fill('mqtt://127.0.0.1:1883');
     await page.getByLabel('MQTT username', { exact: true }).fill('fixture-user');
     await page.getByLabel('MQTT password', { exact: true }).fill('fixture-password');
-    await page.getByRole('button', { name: 'Save and connect', exact: true }).click();
+    await Promise.all([
+      page.waitForResponse(response => response.url().endsWith('/api/modules/esp32') && response.request().method() === 'PUT'),
+      page.getByRole('button', { name: 'Save and connect', exact: true }).click(),
+    ]);
     await page.waitForFunction(() => document.querySelector('input[name="module-broker-password"]')?.value === '');
-    await page.getByRole('button', { name: 'Reconnect ESP32', exact: true }).click();
+    await Promise.all([
+      page.waitForResponse(response => response.url().endsWith('/api/modules/esp32/connect') && response.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Reconnect ESP32', exact: true }).click(),
+    ]);
     assert.equal(reconnects, 2);
     assert.equal(home.hardwareReady(), false);
     report.checks.push('Offline Modules page is accessible; saving/reconnecting broker alone cannot enable the assistant');
