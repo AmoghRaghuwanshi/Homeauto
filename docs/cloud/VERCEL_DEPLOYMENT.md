@@ -3,11 +3,10 @@
 The new standalone cloud source is in [`website`](../../website/README.md).
 The paired laptop and two-board path is described in the
 [remote hub flowchart](REMOTE_HUB_ARCHITECTURE.md). The existing Vercel project
-must be changed to Root Directory `website` before Git deployments can use that
-folder. Until this project setting is confirmed, the earlier root-based deployment
-description below remains historical context.
+can keep Root Directory at the repository root. Its root API delegates to the
+website API and its build serves `website/public`.
 
-The existing homeauto project now serves [HomeAuto](https://homeauto.amoghbuilds.tech) with the authorized restricted Neon configuration. Exact release evidence is in [production acceptance](PRODUCTION_ACCEPTANCE.md). Root `package.json` is the lean Node 22 cloud runtime; `server/package.json` remains the local hub/native speech runtime. `vercel.json` serves `public`, rewrites API routes to `api/index.js`, then provides SPA fallback for nested app routes. No Next.js migration is involved. The API restores the rewritten path, validates platform-parsed bodies, lazily creates a restricted PostgreSQL pool and attaches Vercel pool lifecycle handling. DDL and native speech never run during requests.
+The existing homeauto project now serves [HomeAuto](https://homeauto.amoghbuilds.tech) with the authorized restricted Neon configuration. Exact earlier release evidence is in [production acceptance](PRODUCTION_ACCEPTANCE.md). Root `package.json` is the lean Node 22 cloud runtime; `server/package.json` remains the local hub runtime. Root `vercel.json` serves `website/public`, rewrites API routes to the root `api/index.js` delegate, then provides SPA fallback for nested app routes. No Next.js migration is involved. The website API restores the rewritten path, validates platform-parsed bodies, lazily creates a restricted PostgreSQL pool and attaches Vercel pool lifecycle handling. DDL and native speech never run during requests.
 
 `npm ci --ignore-scripts` then `npm run build` runs the committed bundle guard. It traces the function and rejects SQLite runtime/data, MQTT/native voice modules, model files and certificates. `.vercelignore` and `.gitignore` exclude local databases, private environment files, credentials, native assets and generated outputs. The sanitized source is published to [AmoghRaghuwanshi/Homeauto](https://github.com/AmoghRaghuwanshi/Homeauto); exact manifest, secret scans, Actions and anonymous-clone evidence are in [publication verification](../verification/GITHUB_PUBLICATION_REPORT.md). Do not upload the hub's whole private runtime as deployment input.
 
@@ -17,13 +16,13 @@ The existing homeauto project now serves [HomeAuto](https://homeauto.amoghbuilds
 |---|---|
 | Repository / branch | AmoghRaghuwanshi/Homeauto / main |
 | Framework Preset | Other |
-| Root Directory | `website` for the new release (currently repository root) |
+| Root Directory | Repository root (`./`); `website` is an optional later setting |
 | Node.js Version | 22.x |
 | Install Command | `npm ci --ignore-scripts` |
-| Build Command | `npm run build` |
-| Output Directory | `public` |
+| Build Command | `npm run site:check && npm run build` |
+| Output Directory | `website/public` |
 
-Git-triggered deployment remains disabled at the repository root. The independent `website/vercel.json` enables it after the Vercel project Root Directory is updated. Run `npm run site:sync` before pushing and let CI verify the copy. Apply migration 005 before enabling remote door flags. Keep Preview and Production database roles/branches separate and run the acceptance checks below for future releases.
+Git-triggered deployment is enabled by root `vercel.json`. Its build rejects a stale website copy before tracing the cloud function. `website/vercel.json` also supports a future project Root Directory change to `website`. Run `npm run site:sync` before pushing and let CI verify the copy. Apply migration 005 before enabling remote door flags. Keep Preview and Production database roles/branches separate and run the acceptance checks below for future releases.
 
 ## Simulation on the domain
 
@@ -33,7 +32,7 @@ The domain demo does not require an ESP32, MQTT broker or gateway. Its non-auth 
 
 ## Update an existing Vercel site
 
-Pushing to GitHub updates the source repository. It does not update this site's deployment while automatic Git deployment is disabled.
+Pushing to `main` now triggers the connected Git deployment. Confirm the resulting deployment reaches Ready before assuming the domain changed. The steps below remain useful for an explicit release or recovery.
 
 1. In the existing Vercel project, check Settings → Git connects to AmoghRaghuwanshi/Homeauto. Check Production branch tracking uses main.
 2. Open Deployments → Create Deployment (it may be in the header's three-dot menu).

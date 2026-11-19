@@ -27,16 +27,17 @@ async function verifyCloudBuild() {
   const config = JSON.parse(
     fs.readFileSync(path.join(root, "vercel.json"), "utf8"),
   );
+  const staticDirectory = path.basename(root) === 'website' ? 'public' : 'website/public';
   if (
-    config.outputDirectory !== "public" ||
+    config.outputDirectory !== staticDirectory ||
     !config.rewrites[0].source.startsWith("/api/")
   )
     throw new Error("Cloud routes must precede the SPA fallback.");
   for (const file of [
-    "public/index.html",
-    "public/js/api.js",
-    "public/js/state.js",
-    "public/css/tokens.css",
+    `${staticDirectory}/index.html`,
+    `${staticDirectory}/js/api.js`,
+    `${staticDirectory}/js/state.js`,
+    `${staticDirectory}/css/tokens.css`,
   ])
     if (!fs.existsSync(path.join(root, file)))
       throw new Error("Missing static app asset.");
@@ -45,7 +46,7 @@ async function verifyCloudBuild() {
       result: "passed",
       traced_files: fileList.size,
       native_hub_files: 0,
-      static_directory: "public",
+      static_directory: staticDirectory,
       deployment_performed: false,
     }),
   );

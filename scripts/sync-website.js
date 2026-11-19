@@ -8,7 +8,7 @@ const files = [
   'server/auth/sessions.js', 'server/services/home.js', 'server/voice/intent.js',
   'server/cloud/config.js', 'server/cloud/postgres.js', 'server/cloud/protocol.js',
 ];
-const directories = ['api', 'public', 'server/online', 'server/lib'];
+const directories = ['public', 'server/online', 'server/lib'];
 const expected = new Map();
 function add(relative) {
   expected.set(relative.replaceAll('\\', '/'), fs.readFileSync(path.join(root, relative)));
@@ -26,6 +26,8 @@ for (const dir of directories) {
 }
 const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
 vercel.git = { deploymentEnabled: true };
+vercel.buildCommand = 'npm run build';
+vercel.outputDirectory = 'public';
 expected.set('vercel.json', Buffer.from(JSON.stringify(vercel, null, 2) + '\n'));
 function currentGenerated() {
   const found = [];

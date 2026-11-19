@@ -28,7 +28,7 @@ Door unlock adds a fresh password reauthentication, an explicit confirmation dia
 ## Operator setup
 
 1. Apply `server/online/migrations/005_remote_door.sql` through the reviewed online migration tool with the database owner connection before enabling door control. Keep the runtime database role restricted.
-2. In Vercel, configure the existing project to use `website` as its Root Directory. Keep the existing domain and cloud database environment. The `website/vercel.json` enables Git deployments so future pushes to `main` deploy the website copy. The repository CI runs `npm run site:check` to catch any unsynced source.
+2. Keep the existing Vercel project connected to `main` with its current repository root setting. Root `vercel.json` now builds and serves the `website` copy and enables Git deployments. The build and CI both run `npm run site:check` to reject an unsynced copy. A later switch to Root Directory `website` is optional.
 3. On the domain, sign in as the owner, reauthenticate, and download a private gateway connection file. Store it outside the repository. Launch the laptop with `node server/scripts/with-gateway.js PATH_TO_CONNECTION_FILE`.
 4. Connect both boards and the laptop to the same Wi-Fi. Configure a local TLS MQTT broker with per-device credentials, secure laptop to broker access, and the laptop's current LAN address in both sketches. The Wi-Fi name alone does not determine the laptop's IP address.
 5. After supervised door hardware testing, set `HOMEAUTO_DOOR_ENABLED=1`, `HOMEAUTO_REMOTE_DOOR_ENABLED=1`, `HOMEAUTO_SECURE_GATEWAY_APPROVED=1`, `HOMEAUTO_MQTT_ENABLED=1`, `HOMEAUTO_MQTT_BROKER=mqtts://...`, and broker credentials on the laptop. For remote lights, additionally set `HOMEAUTO_REMOTE_LIGHTS_ENABLED=1`.

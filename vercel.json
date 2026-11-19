@@ -1,10 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "git": { "deploymentEnabled": false },
+  "git": { "deploymentEnabled": true },
   "installCommand": "npm ci --ignore-scripts",
-  "buildCommand": "npm run build",
-  "outputDirectory": "public",
+  "buildCommand": "npm run site:check && npm run build",
+  "outputDirectory": "website/public",
   "fluid": true,
   "functions": {
     "api/index.js": {

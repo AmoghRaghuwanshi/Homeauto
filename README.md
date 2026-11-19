@@ -15,8 +15,9 @@ The deployable cloud copy lives in [website](website/README.md); run
 The cloud site is live at [HomeAuto](https://homeauto.amoghbuilds.tech).
 [Create an account](https://homeauto.amoghbuilds.tech/signup) or
 [sign in](https://homeauto.amoghbuilds.tech/login). Each new account gets a private
-home; devices require gateway enrollment. The existing domain project has not yet been
-switched to the new `website` root directory. Publishing source does not activate hardware.
+home; devices require gateway enrollment. The existing domain project can keep
+the repository root setting while its configuration serves the new `website` copy.
+Publishing source does not activate hardware.
 
 Cloud signup accepts passwords of10–256 characters. Existing account passwords do
 not change when the minimum length changes. Use the same registered username to
