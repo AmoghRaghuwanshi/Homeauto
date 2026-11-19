@@ -16,7 +16,6 @@ server/voice/asset-manifest.json
 server/tests
 server/scripts
 server/cloud/migrations
-server/online/migrations
 *.log
 *.key
 *.pem
