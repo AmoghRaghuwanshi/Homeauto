@@ -63,6 +63,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm ci --ignore-scripts --prefix server
       - run: npm run build
+      - run: npm run site:check
       - run: node scripts/check-syntax.js
       - run: npm test
       - name: Verify preinstalled test browsers

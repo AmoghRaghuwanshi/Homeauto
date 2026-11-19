@@ -127,7 +127,7 @@ test("production cloud safety and failure regressions", async (t) => {
         loadGatewayConfig({ ...env, HOMEAUTO_REMOTE_LIGHTS_ENABLED: "1" }),
       );
       assert.throws(() =>
-        loadGatewayConfig({ ...env, HOMEAUTO_DOOR_ENABLED: "1" }),
+        loadGatewayConfig({ ...env, HOMEAUTO_REMOTE_DOOR_ENABLED: "1", HOMEAUTO_DOOR_ENABLED: "1" }),
       );
       assert.throws(() =>
         loadGatewayConfig({ ...env, HOMEAUTO_CLOUD_SYNC_ENABLED: "1" }),

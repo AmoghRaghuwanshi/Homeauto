@@ -22,15 +22,14 @@ function loadGatewayConfig(env = process.env) {
     )
   )
     throw new Error("Gateway UUIDs must be lowercase.");
-  if (env.HOMEAUTO_DOOR_ENABLED === "1")
-    throw new Error("Keep the physical door gate off during gateway rollout.");
   if (env.HOMEAUTO_CLOUD_SYNC_ENABLED === "1")
     throw new Error(
       "Select one cloud transport; disable the legacy catalog mirror before gateway enrollment.",
     );
   const allowLights = env.HOMEAUTO_REMOTE_LIGHTS_ENABLED === "1";
+  const allowDoor = env.HOMEAUTO_REMOTE_DOOR_ENABLED === '1';
   if (
-    allowLights &&
+    (allowLights || allowDoor) &&
     (env.HOMEAUTO_SECURE_GATEWAY_APPROVED !== "1" ||
       env.HOMEAUTO_MQTT_ENABLED !== "1" ||
       !env.HOMEAUTO_MQTT_BROKER?.startsWith("mqtts://") ||
@@ -40,12 +39,15 @@ function loadGatewayConfig(env = process.env) {
     throw new Error(
       "Remote lighting requires separately validated secure gateway and broker configuration.",
     );
+  if (allowDoor && env.HOMEAUTO_DOOR_ENABLED !== '1')
+    throw new Error('Remote door control requires the physical door safety gate.');
   return {
     householdId: env.HOMEAUTO_HOUSEHOLD_ID,
     gatewayId: env.HOMEAUTO_GATEWAY_ID,
     token: env.HOMEAUTO_GATEWAY_TOKEN,
     origin: endpoint(env.HOMEAUTO_GATEWAY_ORIGIN),
     allowLights,
+    allowDoor,
   };
 }
 function initializeGatewayJournal(tx, config) {
@@ -246,7 +248,7 @@ function createGatewayWorker(
   const remoteActor = {
     user_id: "gateway:" + config.gatewayId,
     role: "resident",
-    can_unlock: false,
+    can_unlock: true,
   };
   async function post(path, body) {
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -293,10 +295,10 @@ function createGatewayWorker(
       command.command_id !== command.command_id.toLowerCase() ||
       !uuid(command.lease_id) ||
       command.lease_id !== command.lease_id.toLowerCase() ||
-      !["light-1", "light-2", "light-3", "light-4"].includes(
+      !["light-1", "light-2", "light-3", "light-4", "door-1"].includes(
         command.device_id,
       ) ||
-      !["on", "off"].includes(command.action) ||
+      !(command.device_id === 'door-1' ? ['lock', 'unlock'] : ['on', 'off']).includes(command.action) ||
       !Number.isFinite(Date.parse(command.expires_at))
     )
       throw new Error("Invalid command envelope");
@@ -326,7 +328,7 @@ function createGatewayWorker(
       ],
     );
     try {
-      if (!config.allowLights)
+      if (!(command.device_id === 'door-1' ? config.allowDoor : config.allowLights))
         throw Object.assign(new Error(), {
           code: "REMOTE_CONTROL_NOT_ENABLED",
         });
@@ -360,7 +362,7 @@ function createGatewayWorker(
             : home.now() - Date.parse(d.observation.received_at);
       if (
         !home.connected ||
-        !home.boardOnline("lights") ||
+        !home.boardOnline(byId[command.device_id].board_id) ||
         d.observation.freshness !== "current" ||
         age < 0 ||
         age > 65000
@@ -369,7 +371,7 @@ function createGatewayWorker(
       const local = home.request(
         command.device_id,
         { action: command.action, idempotency_key: command.command_id },
-        remoteActor,
+        { ...remoteActor, reauth_at: home.now() },
         "cloud",
         () => !stopped && performance.now() < admissionDeadline,
       );

@@ -44,7 +44,7 @@ async function startRuntime(config = loadConfig(), overrides = {}) {
     const doorConfig = overrides.doorConfig || new DoorConfig(config.DOOR_CONFIG_PATH || path.join(__dirname, '../.local/door-config.enc.json'));
     home.doorConfig = doorConfig;
     home.hardwareRequired = !home.simulation;
-    const sessions = overrides.sessions || new Sessions(repo, { secure });
+    const sessions = overrides.sessions || new Sessions(repo, { secure, gateway: config.GATEWAY });
     const assistant = new Assistant(home); speech = overrides.speech || new BrowserSpeechService(home, assistant, config);
     camera = new CameraService({ mode: config.CAMERA_MODE, simulation: home.simulation, now: () => home.now() });
     let reconnecting = false;

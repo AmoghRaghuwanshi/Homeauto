@@ -41,11 +41,12 @@ function createApp({ repo, home, sessions, assistant, speech, camera = new Camer
   }));
   app.get('/api/auth/setup-status', (req, res) => {
     if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) return res.status(403).json({ error: { code: 'FORBIDDEN' } });
-    res.json({ setup_required: !repo.one('SELECT id FROM users LIMIT 1') });
+    res.json({ setup_required: !config.GATEWAY && !repo.one('SELECT id FROM users LIMIT 1') });
   });
   let setupBusy = false;
   app.post('/api/auth/setup', asyncRoute(async (req, res) => {
     mutation(req);
+    if (config.GATEWAY) fail('CLOUD_LOGIN_REQUIRED', 403);
     if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) fail('FORBIDDEN', 403);
     fields(req.body, ['username', 'password', 'display_name'], ['username', 'password', 'display_name']);
     if (repo.one('SELECT id FROM users LIMIT 1')) fail('OWNER_ALREADY_CONFIGURED', 409);

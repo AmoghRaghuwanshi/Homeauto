@@ -1,0 +1,14 @@
+/* Behavior and new voice features shared with the preserved deployed layout. */
+.transition-screen{display:grid;place-items:center;min-height:100dvh;padding:24px;}
+.assistant-workspace{display:grid;gap:20px;min-width:0;}
+.conversation{max-height:min(65vh,720px);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:2px;}
+.chat-turn{display:grid;gap:12px;}
+.banner-wake{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--primary-soft);color:var(--text);}
+.banner-wake>span{flex:1;min-width:140px;}.banner-wake[hidden]{display:none;}
+.assistant-audio-output audio{display:block;width:100%;max-width:100%;}
+.button{position:relative;}.button-spinner{display:none;position:absolute;left:50%;top:50%;margin:-8px 0 0 -8px;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;}
+.button[aria-busy="true"] .button-spinner{display:inline-block;animation:spin .8s linear infinite;}
+.button[aria-busy="true"]>.button-label,.button[aria-busy="true"]>.button-icon{opacity:0;}
+[hidden]{display:none!important;}
+.camera-preview img{display:block;width:100%;max-width:320px;height:auto;border-radius:var(--radius-control);}
+@media(max-width:767px), (max-width:1023px) and (max-height:500px) and (hover:none) and (pointer:coarse){.assistant-stage .voice-language-note,.assistant-stage .live-conversation-controls,.assistant-stage #assistant-setup-note{grid-column:1/-1;}.assistant-stage .live-conversation-controls{width:100%;}.assistant-stage #live-conversation-toggle{width:100%;}}

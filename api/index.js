@@ -14,7 +14,7 @@ async function initialize() {
         pool = createPool(process.env.DATABASE_URL);
         require("@vercel/functions").attachDatabasePool(pool);
       }
-      await assertOnlineRole(pool);
+      await assertOnlineRole(pool, { requireDoorSchema: config.allowDoor });
       return createOnlineApp({ pool, config });
     })().catch((error) => {
       application = null;

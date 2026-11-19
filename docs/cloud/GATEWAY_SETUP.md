@@ -15,7 +15,7 @@ New accounts start with a private, empty home. The primary action is **Connect g
 
 5. Open gateway setup again and check the connection. Devices appear only after an accepted gateway report. Merely downloading the file does not establish a connection.
 
-The launcher enables the existing telemetry gateway, keeps the legacy cloud mirror off, and explicitly keeps remote lighting and physical door gates off. The separate offline demonstration uses the normal locally supervised hub setup. This release does not authorize remote hardware actions or change MQTT topics, firmware, RFID rules, or the broker.
+The launcher enables the telemetry gateway and keeps the legacy cloud mirror off. Remote lighting and door gates are off by default; the laptop operator can enable them with the separately documented environment flags after secure broker and physical checks. The laptop dashboard validates the same cloud account credentials against the paired household. See the [remote hub flow](REMOTE_HUB_ARCHITECTURE.md).
 
 The connection file expires after 30 days. Renew a connected gateway through the existing local operator workflow before expiry. Before the first report, the owner can explicitly replace a lost setup file; the old key is revoked. A connected or revoked gateway cannot be overwritten by this browser flow. Do not remove an existing gateway merely to repeat setup.
 
@@ -23,7 +23,7 @@ The connection file expires after 30 days. Renew a connected gateway through the
 
 The server derives household and user identity from the current session. A fresh owner password confirmation is required, and SQL revalidates the session under a user lock. Household-scoped enrollment is serialized. The runtime can execute the narrow enrollment function but cannot select gateway keys, passwords, or sessions. Only the token hash is stored. The plaintext token is returned once, held in memory for the download, and never rendered into text, persisted in browser storage, or logged. All browser writes retain Origin, CSRF and rate limits.
 
-Migration 004 is additive. Deploy the application accepting schema versions 2/3/4 before applying it; schema 3 keeps existing login operational and reports setup unavailable until the helper is installed. Apply through the existing migration ledger and restricted grants. Do not edit migrations 001–003.
+Migrations 004 and 005 are additive. The application accepts schema versions 2–5 for existing operations; remote door control requires version 5. Apply through the existing migration ledger and restricted grants. Do not edit migrations 001–004.
 
 ## Demo home
 

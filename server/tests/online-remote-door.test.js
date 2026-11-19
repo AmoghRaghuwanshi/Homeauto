@@ -1,0 +1,87 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const http = require('node:http');
+const { onlineFixture } = require('./helpers/online-fixture');
+const { createCloudAuth } = require('../online/auth');
+const { createOnlineStore } = require('../online/store');
+const { createRepository } = require('../db/repository');
+const { Sessions } = require('../auth/sessions');
+const { Home } = require('../services/home');
+const { createApp } = require('../app');
+const { createGatewayWorker } = require('../online/gateway');
+
+test('same cloud credentials reach local hub; confirmed remote unlock publishes once and awaits board report', async t => {
+  const fixture = await onlineFixture();
+  t.after(() => fixture.close());
+  const auth = createCloudAuth(fixture.pool, { secure: false, allowDoor: true });
+  const store = createOnlineStore(fixture.pool, { allowCommands: true, allowDoor: true });
+  const config = { householdId: fixture.household, gatewayId: fixture.gateway, token: fixture.token, origin: 'https://cloud.invalid', allowLights: true, allowDoor: true };
+  const repo = await createRepository({ gateway: config });
+  t.after(() => repo.close());
+  const published = [];
+  const home = new Home(repo, { allowDoor: true, publisher: (topic, payload, opts, callback) => { published.push({ topic, payload, opts }); callback(null); } });
+  home.setConnected(true);
+  for (const board of ['lights', 'door']) home.ingest(`home/esp32/${board}/online`, Buffer.from('true'));
+  for (let i = 1; i <= 4; i++) home.ingest(`home/light/${i}/status`, Buffer.from('off'));
+  home.ingest('home/door/1/status', Buffer.from('locked'));
+  const gateway = { household_id: fixture.household, gateway_id: fixture.gateway };
+  const fetchImpl = async (url, opts) => {
+    const path = new URL(url).pathname;
+    const body = JSON.parse(opts.body);
+    try {
+      if (path === '/api/gateway/auth/login') return Response.json(await auth.verifyGatewayLogin(body.username, body.password, gateway, 'test-ip'));
+      if (path === '/api/gateway/auth/reauth') {
+        const identity = await auth.verifyGatewayLogin(body.username, body.password, gateway, 'test-ip');
+        if (identity.user_id !== body.user_id) return Response.json({}, { status: 401 });
+        return Response.json({ user_id: identity.user_id, household_id: identity.household_id });
+      }
+      if (path.endsWith('/ticket')) return Response.json(await store.ticket(gateway));
+      if (path.endsWith('/exchange')) return Response.json(await store.exchange(gateway, body));
+      return Response.json(await store.redeem(gateway, path.split('/').at(-2), body.lease_id));
+    } catch (error) { return Response.json({ error: { code: error.code } }, { status: error.status || 503 }); }
+  };
+  const sessions = new Sessions(repo, { secure: false, gateway: config, fetchImpl });
+  const app = createApp({ repo, home, sessions, assistant: {}, speech: {}, config: { GATEWAY: config } });
+  const server = http.createServer(app);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
+  const localUrl = `http://127.0.0.1:${server.address().port}`;
+  assert.equal((await (await fetch(localUrl + '/api/auth/setup-status')).json()).setup_required, false);
+  const setup = await fetch(localUrl + '/api/auth/setup', { method: 'POST', headers: { Origin: localUrl, 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'local-owner', password: fixture.password, display_name: 'Local' }) });
+  assert.equal(setup.status, 403);
+  const browserLogin = await fetch(localUrl + '/api/auth/login', { method: 'POST', headers: { Origin: localUrl, 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'cloud-owner', password: fixture.password }) });
+  assert.equal(browserLogin.status, 200);
+  assert.equal((await browserLogin.json()).user.role, 'owner');
+  assert.match(browserLogin.headers.get('set-cookie'), /HttpOnly/);
+  await assert.rejects(sessions.login('cloud-owner', 'wrong-password', 'local-test'), { code: 'INVALID_LOGIN' });
+  const local = await sessions.login('cloud-owner', fixture.password, 'local-test');
+  assert.equal(local.user.role, 'owner');
+  assert.equal(local.user.can_unlock, true);
+  const localReauth = await sessions.reauth(local, local.token, fixture.password);
+  assert.ok(localReauth.reauth_at);
+  for (const board of ['lights', 'door']) home.ingest(`home/esp32/${board}/online`, Buffer.from('true'));
+  home.ingest('home/door/1/status', Buffer.from('locked'));
+  const worker = createGatewayWorker(home, config, { fetchImpl });
+  t.after(() => worker.stop());
+  assert.equal((await worker.runOnce()).state, 'connected');
+  const cloudLogin = await auth.login('cloud-owner', fixture.password, 'remote-test');
+  await assert.rejects(store.challenge(cloudLogin.session, { device_id: 'door-1', idempotency_key: crypto.randomUUID() }), { code: 'REAUTH_REQUIRED' });
+  const refreshed = await auth.reauth(cloudLogin.session, cloudLogin.token, fixture.password);
+  home.ingest('home/esp32/door/online', Buffer.from('true'));
+  home.ingest('home/door/1/status', Buffer.from('locked'));
+  await worker.runOnce();
+  const actor = refreshed.session, key = crypto.randomUUID();
+  const challenge = await store.challenge(actor, { device_id: 'door-1', idempotency_key: key });
+  await assert.rejects(store.request(actor, 'door-1', { action: 'unlock', idempotency_key: key, confirmation_id: 'bad' }), { code: 'CONFIRMATION_EXPIRED' });
+  const command = await store.request(actor, 'door-1', { action: 'unlock', idempotency_key: key, confirmation_id: challenge.confirmation_id });
+  assert.equal(command.state, 'queued');
+  assert.equal((await worker.runOnce()).state, 'connected');
+  assert.deepEqual(published, [{ topic: 'home/door/1/command', payload: 'unlock', opts: { qos: 0, retain: false } }]);
+  assert.equal((await store.command(actor, command.id)).state, 'pending_observation');
+  home.ingest('home/door/1/status', Buffer.from('unlocked'));
+  await worker.runOnce();
+  assert.equal((await store.command(actor, command.id)).state, 'observed');
+  await worker.runOnce();
+  assert.equal(published.length, 1);
+});

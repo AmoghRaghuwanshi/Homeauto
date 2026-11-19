@@ -8,11 +8,15 @@ This repository contains two supported runtimes: the offline household hub and
 an optional authenticated Vercel/Neon cloud API. Start with
 [deployment readiness](docs/cloud/DEPLOYMENT_READINESS.md) and
 [full verification](docs/verification/FULL_SYSTEM_VERIFICATION.md).
+The [remote phone to laptop flowchart](docs/cloud/REMOTE_HUB_ARCHITECTURE.md)
+shows the paired cloud account, outbound laptop gateway, local broker, and two ESP32 boards.
+The deployable cloud copy lives in [website](website/README.md); run
+`npm run site:sync` after changing shared frontend or cloud API files.
 The cloud site is live at [HomeAuto](https://homeauto.amoghbuilds.tech).
 [Create an account](https://homeauto.amoghbuilds.tech/signup) or
 [sign in](https://homeauto.amoghbuilds.tech/login). Each new account gets a private
-home; devices require gateway enrollment. Git-triggered deployment stays disabled;
-tested releases are deployed explicitly. Publishing source does not activate hardware.
+home; devices require gateway enrollment. The existing domain project has not yet been
+switched to the new `website` root directory. Publishing source does not activate hardware.
 
 Cloud signup accepts passwords of10–256 characters. Existing account passwords do
 not change when the minimum length changes. Use the same registered username to

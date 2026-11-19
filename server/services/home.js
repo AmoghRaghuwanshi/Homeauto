@@ -88,7 +88,7 @@ class Home extends EventEmitter {
     if (!(reg.type === 'light' ? ['on', 'off'] : reg.type === 'door' ? ['lock', 'unlock'] : []).includes(action)) fail('UNSUPPORTED_ACTION', 422);
     if (reg.type === 'door' && !this.allowDoor) fail('DOOR_SAFETY_SETUP_REQUIRED', 503);
     if (action === 'unlock') {
-      if (source !== 'manual' && source !== 'rfid') fail('SENSITIVE_ACTION_REQUIRES_UI', 403);
+      if (source !== 'manual' && source !== 'rfid' && source !== 'cloud') fail('SENSITIVE_ACTION_REQUIRES_UI', 403);
       if (source !== 'rfid') authorize(actor, 'unlock', this.now());
     }
     if (!this.connected || !this.publisher || !this.boardOnline(reg.board_id)) fail('DEVICE_UNAVAILABLE', 503);
@@ -98,7 +98,7 @@ class Home extends EventEmitter {
     const target = { on: 'on', off: 'off', lock: 'locked', unlock: 'unlocked' }[action];
     const noop = action !== 'unlock' && d.observation.freshness === 'current' && d.observation.reported_status === target;
     this.repo.transaction(tx => {
-      if (action === 'unlock' && source !== 'rfid') {
+      if (action === 'unlock' && source !== 'rfid' && source !== 'cloud') {
         const c = tx.one('SELECT * FROM unlock_challenges WHERE token_hash=?', [hash(String(input.confirmation_id || ''))]);
         if (!c || c.session_hash !== actor.token_hash || c.device_id !== id || c.expires_at <= now || c.consumed_at) fail('CONFIRMATION_EXPIRED', 409);
         tx.run('UPDATE unlock_challenges SET consumed_at=? WHERE token_hash=?', [now, c.token_hash]);

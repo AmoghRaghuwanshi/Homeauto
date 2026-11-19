@@ -15,7 +15,7 @@ const fn = async (pool, name, args = []) => {
   );
   return rows[0]?.value;
 };
-function createCloudAuth(pool, { secure = true } = {}) {
+function createCloudAuth(pool, { secure = true, allowDoor = false } = {}) {
   let busy = 0;
   const cookieName = secure ? "__Host-homeauto-cloud" : "homeauto-cloud-dev";
   const cookie = (token, expired = false) =>
@@ -44,7 +44,7 @@ function createCloudAuth(pool, { secure = true } = {}) {
       id: a.user_id,
       display_name: a.display_name,
       role: a.role,
-      can_unlock: false,
+      can_unlock: allowDoor && ["owner", "resident"].includes(a.role),
     },
     household_id: a.household_id,
     csrf_token: a.csrf_token,
@@ -69,6 +69,19 @@ function createCloudAuth(pool, { secure = true } = {}) {
     actor,
     dto,
     rate,
+    async verifyGatewayLogin(username, password, gateway, ip) {
+      username = text(username).toLowerCase();
+      await rate("hub-login-ip:" + ip, 20, 900);
+      await rate("hub-login-user:" + gateway.gateway_id + ":" + username, 5, 900);
+      const user = await fn(pool, "login_user", [username]);
+      const dummy = "scrypt:32768:8:1:homeauto-cloud-dummy:" + "0".repeat(128);
+      const valid = await check(password, user?.password_hash || dummy);
+      if (!user || user.disabled || !valid) fail("INVALID_LOGIN", 401);
+      const homes = await fn(pool, "user_households", [user.user_id]);
+      const member = homes?.find(h => h.household_id === gateway.household_id);
+      if (!member) fail("INVALID_LOGIN", 401);
+      return { user_id: user.user_id, username, display_name: username, role: member.role, household_id: gateway.household_id };
+    },
     async register(username, displayName, password, ip) {
       if (typeof username !== 'string' || !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username.trim().toLowerCase()))
         fail('INVALID_USERNAME', 400);

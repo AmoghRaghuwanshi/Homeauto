@@ -1,5 +1,12 @@
 # Vercel and custom-domain deployment
 
+The new standalone cloud source is in [`website`](../../website/README.md).
+The paired laptop and two-board path is described in the
+[remote hub flowchart](REMOTE_HUB_ARCHITECTURE.md). The existing Vercel project
+must be changed to Root Directory `website` before Git deployments can use that
+folder. Until this project setting is confirmed, the earlier root-based deployment
+description below remains historical context.
+
 The existing homeauto project now serves [HomeAuto](https://homeauto.amoghbuilds.tech) with the authorized restricted Neon configuration. Exact release evidence is in [production acceptance](PRODUCTION_ACCEPTANCE.md). Root `package.json` is the lean Node 22 cloud runtime; `server/package.json` remains the local hub/native speech runtime. `vercel.json` serves `public`, rewrites API routes to `api/index.js`, then provides SPA fallback for nested app routes. No Next.js migration is involved. The API restores the rewritten path, validates platform-parsed bodies, lazily creates a restricted PostgreSQL pool and attaches Vercel pool lifecycle handling. DDL and native speech never run during requests.
 
 `npm ci --ignore-scripts` then `npm run build` runs the committed bundle guard. It traces the function and rejects SQLite runtime/data, MQTT/native voice modules, model files and certificates. `.vercelignore` and `.gitignore` exclude local databases, private environment files, credentials, native assets and generated outputs. The sanitized source is published to [AmoghRaghuwanshi/Homeauto](https://github.com/AmoghRaghuwanshi/Homeauto); exact manifest, secret scans, Actions and anonymous-clone evidence are in [publication verification](../verification/GITHUB_PUBLICATION_REPORT.md). Do not upload the hub's whole private runtime as deployment input.
@@ -10,13 +17,13 @@ The existing homeauto project now serves [HomeAuto](https://homeauto.amoghbuilds
 |---|---|
 | Repository / branch | AmoghRaghuwanshi/Homeauto / main |
 | Framework Preset | Other |
-| Root Directory | Repository root (`./`), not server |
+| Root Directory | `website` for the new release (currently repository root) |
 | Node.js Version | 22.x |
 | Install Command | `npm ci --ignore-scripts` |
 | Build Command | `npm run build` |
 | Output Directory | `public` |
 
-Git-triggered deployment remains disabled by `git.deploymentEnabled=false` in vercel.json. These selections document the existing deployment and future imports. Keep Preview and Production database roles/branches separate and run the acceptance checks below for future releases. Do not enable remote-light flags when importing.
+Git-triggered deployment remains disabled at the repository root. The independent `website/vercel.json` enables it after the Vercel project Root Directory is updated. Run `npm run site:sync` before pushing and let CI verify the copy. Apply migration 005 before enabling remote door flags. Keep Preview and Production database roles/branches separate and run the acceptance checks below for future releases.
 
 ## Simulation on the domain
 
@@ -47,6 +54,8 @@ Use the platform's secure environment management, separately for Development, Pr
 | ALLOWED_ORIGINS | Optional comma-separated exact HTTPS aliases, no wildcard/path/trailing slash |
 | HOMEAUTO_CLOUD_REMOTE_LIGHTS_ENABLED | `0` initially |
 | HOMEAUTO_REMOTE_LIGHTS_APPROVED | `0` initially; independent later authorization |
+| HOMEAUTO_CLOUD_REMOTE_DOOR_ENABLED | `0` until migration 005 and supervised hardware setup |
+| HOMEAUTO_REMOTE_DOOR_APPROVED | `0` until supervised hardware setup |
 
 If APP_BASE_URL is absent, VERCEL_URL supplies the environment's exact deployment origin; no arbitrary Host header is trusted. `PUBLIC_APP_URL` and `SESSION_COOKIE_DOMAIN` are unnecessary: browser calls are same-origin and the Secure, HttpOnly, SameSite=Strict `__Host-` cookie is host-only. A sibling domain does not share a session. No database variable may have a public/client prefix. Do not set gateway tokens, native MQTT credentials or operator passwords in frontend assets.
 

@@ -8,6 +8,8 @@
   },
   "scripts": {
     "build": "node scripts/verify-cloud-build.js",
+    "site:sync": "node scripts/sync-website.js",
+    "site:check": "node scripts/sync-website.js --check",
     "test:publication": "node scripts/verify-publication.js",
     "test": "npm --prefix server test",
     "test:online": "npm --prefix server run test:online",

@@ -12,9 +12,10 @@ function createOnlineApp({ pool, config, logger = console }) {
   const app = express();
   app.disable("x-powered-by");
   app.set("query parser", "simple");
-  const auth = createCloudAuth(pool, { secure: config.secure !== false }),
+  const auth = createCloudAuth(pool, { secure: config.secure !== false, allowDoor: !!config.allowDoor }),
     store = createOnlineStore(pool, {
       allowCommands: !!config.allowCommands,
+      allowDoor: !!config.allowDoor,
       simulation: !!config.simulation,
     });
   app.locals.auth = auth;
@@ -87,6 +88,7 @@ function createOnlineApp({ pool, config, logger = console }) {
         rfid: false,
         local_voice: false,
         remote_lights: !!config.allowCommands,
+        remote_door: !!config.allowDoor,
       },
     }),
   );
@@ -146,6 +148,16 @@ function createOnlineApp({ pool, config, logger = console }) {
       next();
     }),
   );
+  app.post('/api/gateway/auth/login', route(async (req, res) => {
+    fields(req.body, ['username', 'password'], ['username', 'password']);
+    res.json(await auth.verifyGatewayLogin(req.body.username, req.body.password, req.gateway, String(req.socket.remoteAddress).slice(0, 100)));
+  }));
+  app.post('/api/gateway/auth/reauth', route(async (req, res) => {
+    fields(req.body, ['user_id', 'username', 'password'], ['user_id', 'username', 'password']);
+    const identity = await auth.verifyGatewayLogin(req.body.username, req.body.password, req.gateway, String(req.socket.remoteAddress).slice(0, 100));
+    if (identity.user_id !== req.body.user_id) fail('INVALID_LOGIN', 401);
+    res.json({ user_id: identity.user_id, household_id: identity.household_id });
+  }));
   app.post(
     "/api/gateway/exchange",
     route(async (req, res) =>
@@ -270,7 +282,7 @@ function createOnlineApp({ pool, config, logger = console }) {
     route(async (req, res) => {
       fields(
         req.body,
-        ["action", "idempotency_key"],
+        ["action", "idempotency_key", "confirmation_id"],
         ["action", "idempotency_key"],
       );
       res.status(202).json({
@@ -285,9 +297,11 @@ function createOnlineApp({ pool, config, logger = console }) {
       res.json({ command: await store.command(req.actor, req.params.id) });
     }),
   );
-  app.post("/api/security/unlock-challenges", (req, res, next) =>
-    next(new OnlineError("REMOTE_DOOR_DISABLED", 403)),
-  );
+  app.post('/api/security/unlock-challenges', route(async (req, res) => {
+    if (!config.allowDoor) fail('REMOTE_DOOR_DISABLED', 403);
+    fields(req.body, ['device_id', 'idempotency_key'], ['device_id', 'idempotency_key']);
+    res.json(await store.challenge(req.actor, req.body));
+  }));
   app.get(
     "/api/rooms",
     route(async (req, res) =>
@@ -610,7 +624,7 @@ function createOnlineApp({ pool, config, logger = console }) {
         boards: s.espBoards,
         database: { healthy: true, schema_version: (await pool.query('SELECT max(version)::int version FROM public.homeauto_online_migrations')).rows[0].version, engine: "PostgreSQL" },
         speech: s.speech,
-        door_enabled: false,
+        door_enabled: !!config.allowDoor,
         simulation: !!config.simulation,
         resources: {
           scope: "function_instance",

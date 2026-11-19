@@ -63,9 +63,27 @@ async function expire(client, a) {
 }
 function createOnlineStore(
   pool,
-  { allowCommands = false, simulation = false } = {},
+  { allowCommands = false, allowDoor = false, simulation = false } = {},
 ) {
   const tx = (a, work) => scoped(pool, a, work);
+  function confirmation(a, key, expires) {
+    return `${expires}.${crypto.createHmac('sha256', a.token_hash).update(`door-1:${key}:${expires}`).digest('hex')}`;
+  }
+  function requireFreshReauth(a) {
+    const at = Date.parse(a.reauth_at || '');
+    if (!Number.isFinite(at) || Date.now() - at < 0 || Date.now() - at >= 300000) fail('REAUTH_REQUIRED', 403);
+  }
+  async function challenge(a, input) {
+    if (!allowDoor) fail('REMOTE_DOOR_DISABLED', 403);
+    if (!['owner', 'resident'].includes(a.role)) fail('FORBIDDEN', 403);
+    if (input.device_id !== 'door-1' || !uuid(input.idempotency_key)) fail('VALIDATION_ERROR');
+    requireFreshReauth(a);
+    const snapshot = await tx(a, c => snapshotIn(c, a));
+    const door = snapshot.devices.find(d => d.id === 'door-1');
+    if (!snapshot.gateway.connected || !door || door.connectivity !== 'online' || door.observation.freshness !== 'current' || door.pending_command_id) fail('DEVICE_UNAVAILABLE', 503);
+    const expires = Date.now() + 30000;
+    return { confirmation_id: confirmation(a, input.idempotency_key, expires), device_id: 'door-1', expires_at: new Date(expires).toISOString() };
+  }
   async function snapshotIn(client, a) {
     await expire(client, a);
     const now = await databaseNow(client);
@@ -242,7 +260,7 @@ function createOnlineStore(
         id: a.user_id,
         display_name: a.display_name,
         role: a.role,
-        can_unlock: false,
+        can_unlock: allowDoor && ['owner', 'resident'].includes(a.role),
       },
       preferences: { ...defaults, ...pref?.value, version: pref?.version || 0 },
       home,
@@ -256,7 +274,7 @@ function createOnlineStore(
       system: {
         simulation,
         mode: "cloud",
-        door_enabled: false,
+        door_enabled: allowDoor,
         persistence_healthy: true,
         fault: null,
         remote_lights_enabled: allowCommands,
@@ -266,6 +284,7 @@ function createOnlineStore(
         rfid: false,
         local_voice: false,
         remote_lights: allowCommands,
+        remote_door: allowDoor,
       },
     };
   }
@@ -274,12 +293,12 @@ function createOnlineStore(
     if (!uuid(input.idempotency_key)) fail("INVALID_IDEMPOTENCY_KEY");
     const reg = byId[id];
     if (!reg) fail("NOT_FOUND", 404);
-    if (reg.type === "door") fail("REMOTE_DOOR_DISABLED", 403);
-    if (reg.type !== "light") fail("UNSUPPORTED_ACTION", 422);
-    if (!["on", "off", "toggle"].includes(input.action))
+    if (reg.type === 'door' && !allowDoor) fail('REMOTE_DOOR_DISABLED', 403);
+    if (reg.type !== 'light' && reg.type !== 'door') fail('UNSUPPORTED_ACTION', 422);
+    if (!(reg.type === 'door' ? ['lock', 'unlock'] : ['on', 'off', 'toggle']).includes(input.action))
       fail("UNSUPPORTED_ACTION", 422);
-    if (!allowCommands) fail("REMOTE_CONTROL_NOT_ENABLED", 503);
-    const requestHash = hash({ id, action: input.action });
+    if (reg.type === 'light' && !allowCommands) fail('REMOTE_CONTROL_NOT_ENABLED', 503);
+    const requestHash = hash({ id, action: input.action, confirmation_id: input.confirmation_id || null });
     const old = (
       await client.query(
         "SELECT * FROM homeauto_online.commands WHERE household_id=$1 AND actor_id=$2 AND idempotency_key=$3",
@@ -289,6 +308,11 @@ function createOnlineStore(
     if (old) {
       if (old.request_hash !== requestHash) fail("IDEMPOTENCY_CONFLICT", 409);
       return commandDTO(old);
+    }
+    if (input.action === 'unlock') {
+      requireFreshReauth(a);
+      const match = /^(\d{13})\.([a-f0-9]{64})$/.exec(input.confirmation_id || '');
+      if (!match || Number(match[1]) <= Date.now() || Number(match[1]) > Date.now() + 30000 || !require('../auth/sessions').secureEqual(input.confirmation_id, confirmation(a, input.idempotency_key, match[1]))) fail('CONFIRMATION_EXPIRED', 409);
     }
     if (
       !(await fn(client, "take_limit", [
@@ -348,6 +372,7 @@ function createOnlineStore(
   }
   return {
     tx,
+    challenge,
     snapshot: (a) => tx(a, (c) => snapshotIn(c, a)),
     request: (a, id, body) => tx(a, (c) => requestIn(c, a, id, body)),
     requestIn,
@@ -610,7 +635,7 @@ function createOnlineStore(
                   60000 &&
                 d.age_ms !== null &&
                 d.age_ms + transitAge < 65000 &&
-                d.reported_status === command.action,
+                d.reported_status === ({ lock: 'locked', unlock: 'unlocked' }[command.action] || command.action),
             )
           )
             continue;
@@ -658,7 +683,7 @@ function createOnlineStore(
           const report = message.devices.find(
             (d) => d.id === command.device_id,
           );
-          const board = message.boards.lights;
+          const board = message.boards[byId[command.device_id].board_id];
           if (
             !report?.current ||
             report.retained ||
@@ -738,12 +763,17 @@ function createOnlineStore(
         if (!command) fail("NOT_FOUND", 404);
         if (command.state !== "delivered") fail("COMMAND_NOT_DELIVERABLE", 409);
         if (
-          !allowCommands ||
+          !(command.device_id === 'door-1' ? allowDoor : allowCommands) ||
           !(await fn(c, "valid_controller", [
             command.actor_id,
             a.household_id,
             command.session_hash,
-          ]))
+          ])) ||
+          (command.action === 'unlock' && !await (async () => {
+            const current = await fn(c, 'session_actor', [command.session_hash]);
+            const reauth = Date.parse(current?.reauth_at || '');
+            return current?.user_id === command.actor_id && current?.household_id === a.household_id && Number.isFinite(reauth) && Date.now() - reauth >= 0 && Date.now() - reauth < 300000;
+          })())
         ) {
           await c.query(
             "UPDATE homeauto_online.commands SET state='rejected',error_code='AUTHORIZATION_REVOKED',finished_at=now() WHERE command_id=$1",

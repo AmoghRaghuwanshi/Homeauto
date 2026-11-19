@@ -38,7 +38,7 @@ async function scoped(pool, actor, fn) {
     client.release(broken);
   }
 }
-async function assertOnlineRole(pool) {
+async function assertOnlineRole(pool, { requireDoorSchema = false } = {}) {
   const { rows } = await pool.query(
     "SELECT r.rolsuper,r.rolbypassrls,EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='homeauto_online' AND (c.relowner=r.oid OR pg_has_role(r.oid,c.relowner,'MEMBER'))) AS owns_tables FROM pg_roles r WHERE r.rolname=current_user",
   );
@@ -67,7 +67,7 @@ async function assertOnlineRole(pool) {
   );
   // Additive versions3/4 keep existing sign-in available during rollout.
   // Registration/enrollment fail closed until their helpers are installed.
-  if (![2, 3, 4].includes(version.rows[0]?.version))
+  if (![2, 3, 4, 5].includes(version.rows[0]?.version) || (requireDoorSchema && version.rows[0]?.version !== 5))
     fail(
       "CLOUD_SCHEMA_REQUIRED",
       503,
@@ -125,6 +125,9 @@ function loadOnlineConfig(env = process.env) {
     allowCommands:
       env.HOMEAUTO_CLOUD_REMOTE_LIGHTS_ENABLED === "1" &&
       env.HOMEAUTO_REMOTE_LIGHTS_APPROVED === "1",
+    allowDoor:
+      env.HOMEAUTO_CLOUD_REMOTE_DOOR_ENABLED === "1" &&
+      env.HOMEAUTO_REMOTE_DOOR_APPROVED === "1",
   };
 }
 module.exports = {
