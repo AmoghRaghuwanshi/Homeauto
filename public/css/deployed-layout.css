@@ -159,7 +159,7 @@ html { scrollbar-color:var(--border-strong) var(--bg); }
 .device-card[data-state="on"] { background:var(--primary-soft); border-color:var(--primary-soft); }
 .device-identity { display:flex; align-items:center; gap:var(--space-3); min-width:0; }
 .device-identity>div { flex:1; min-width:0; }
-.device-card h3 a { display:inline-flex; align-items:center; min-height:var(--target); color:var(--text); text-decoration:none; }
+.device-card h3 a { display:inline-flex; align-items:center; min-width:var(--target); min-height:var(--target); color:var(--text); text-decoration:none; }
 .device-card h3 a:hover { text-decoration:underline; }
 .favorite-button { width:var(--target); height:var(--target); min-width:var(--target); min-height:var(--target); border:0; border-radius:var(--radius-control); background:transparent; color:var(--text-subtle); }
 .favorite-button[aria-pressed="true"] { color:var(--primary); background:var(--primary-soft); }
