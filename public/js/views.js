@@ -11,7 +11,7 @@ import { browserVoiceSettings } from './browser-voice-settings.js';
 import { modulesPage, hardwareWaiting } from './modules-page.js';
 import './assistant-language.js';
 
-const symbol = d => d.type === 'light' ? 'bulb' : d.type === 'door' ? 'lock' : d.id === 'sensor-gas' ? 'gas' : 'motion';
+const symbol = d => d.id === 'light-4' && !Api.demo ? 'fan' : d.type === 'light' ? 'bulb' : d.type === 'door' ? 'lock' : d.id === 'sensor-gas' ? 'gas' : 'motion';
 const tone = d => !reported(d) ? 'neutral' : ['alert', 'unlocked'].includes(d.observation.reported_status) ? 'warning' : ['on', 'locked'].includes(d.observation.reported_status) ? 'success' : 'neutral';
 const name = d => d.id === 'door-1' && d.name === 'Front Door' ? t('Front door') : d.id === 'sensor-gas' && d.name === 'Gas Sensor' ? t('Gas sensor') : d.id === 'sensor-motion' && d.name === 'Motion Sensor' ? t('Motion sensor') : d.name;
 const reported = isCurrentReport;
@@ -50,7 +50,7 @@ function deviceCard(d, ctx, { manage = false } = {}) {
   card.append(footer); return card;
 }
 function roomCard(room, index = 0) {
-  const devices = state.snapshot.devices.filter(d => d.room_id === room.id); const on = devices.filter(d => d.type === 'light' && reported(d) && d.observation.reported_status === 'on').length;
+  const devices = state.snapshot.devices.filter(d => d.room_id === room.id); const on = devices.filter(d => d.type === 'light' && (Api.demo || d.id !== 'light-4') && reported(d) && d.observation.reported_status === 'on').length;
   const unavailable = devices.filter(d => !reported(d)).length;
   return el('a', { class: 'card room-card', href: '/rooms/' + room.id },
     el('div', { class: 'room-cover', 'data-room': room.id }, icon(room.id === 'entrance' ? 'lock' : room.id === 'kitchen' ? 'gas' : 'home'), el('span', { class: 'room-cover-count', 'aria-hidden': 'true' }, String(devices.length))),
@@ -68,7 +68,7 @@ function summaryCard(label, value, iconName, href, sub, iconKind) { return el('a
 function sensorRow(d) { return el('a', { class: 'sensor-item', href: '/devices/' + d.id }, well(symbol(d), d.id === 'sensor-gas' ? 'gas' : 'motion'), el('div', { class: 'grow' }, el('h3', {}, name(d)), el('p', { class: 'small muted' }, deviceStatus(d)), el('p', { class: 'small muted' }, t(d.id === 'sensor-gas' ? 'Experimental gas sensor' : 'Last report'))), icon('arrow')); }
 
 function homeView(ctx) {
-  const s = state.snapshot; const lights = s.devices.filter(d => d.type === 'light'); const on = lights.filter(d => reported(d) && d.observation.reported_status === 'on').length; const unknown = lights.filter(d => !reported(d)).length;
+  const s = state.snapshot; const lights = s.devices.filter(d => d.type === 'light' && (Api.demo || d.id !== 'light-4')); const on = lights.filter(d => reported(d) && d.observation.reported_status === 'on').length; const unknown = lights.filter(d => !reported(d)).length;
   const door = deviceById('door-1'); const gas = deviceById('sensor-gas'); const motion = deviceById('sensor-motion');
   const heading = el('section', { class: 'home-intro home-heading' }, el('div', { class: 'hero-copy' }, el('h1', { tabindex: '-1' }, t(Api.demo ? 'Demo home' : 'Welcome home.')), el('p', { class: 'muted' }, t(Api.demo ? 'Explore the online experience with simulated devices.' : 'Simple controls.'))), status(Api.demo ? 'Simulated devices' : s.devices.some(d => !reported(d)) ? 'Some devices are unavailable' : 'Devices connected'));
   const overview = el('div', { class: 'home-overview' }, el('div', { class: 'summary-grid home-status-grid' },
@@ -88,7 +88,8 @@ function homeView(ctx) {
   })));
   const invite = el('section', { class: 'assistant-invite home-assistant' }, well('mic'), el('div', { class: 'grow' }, el('h2', {}, t('Talk to Shrimaan')), el('p', { class: 'small muted' }, t('Ask in Hindi, English, or Hinglish.'))), navButton('Open assistant', '/assistant', 'arrow', 'tonal'));
   const scenarios = Api.demo && el('section', { class: 'card stack demo-scenarios' }, el('h2', {}, t('Try a sensor scenario')), el('p', { class: 'muted' }, t('See how alerts appear. These scenarios affect only this demo.')), el('div', { class: 'row row-wrap' }, button('Simulate gas alert', () => ctx.demoScenario('gas'), { symbol: 'gas' }), button('Simulate motion', () => ctx.demoScenario('motion'), { symbol: 'motion' }), button('Clear scenario', () => ctx.demoScenario('clear'), { kind: 'ghost' }), button('Reset demo', ctx.resetDemo, { kind: 'ghost' })));
-  return el('div', { class: 'home-page stack' }, heading, overview, actions, scenarios, el('div', { class: 'home-layout' }, el('div', { class: 'home-favorites' }, section('Favorites', favorites, '/settings/devices'), invite), rooms));
+  const demoEntry = Api.mode === 'cloud' && !Api.demo && el('section', { class: 'card stack' }, el('h2', {}, t('Explore a demo home')), el('p', { class: 'muted' }, t('Try lights, rooms, sensors and Shrimaan without connecting hardware. Everything in the demo is simulated.')), button('Explore demo home', ctx.startDemo, { kind: 'secondary' }));
+  return el('div', { class: 'home-page stack' }, heading, demoEntry, overview, actions, scenarios, el('div', { class: 'home-layout' }, el('div', { class: 'home-favorites' }, section('Favorites', favorites, '/settings/devices'), invite), rooms));
 }
 function roomsView(ctx, id) {
   const rooms = state.snapshot.rooms;
@@ -136,16 +137,23 @@ function securityView(ctx) {
 async function cardsView(ctx) {
   if (Api.mode === 'cloud') return empty('Access cards stay on the home hub', 'Manage access cards locally.');
   if (!owner()) return denied();
-  const cards = await Api.request('/api/logs/rfid-cards');
+  const [cards, pinState] = await Promise.all([Api.request('/api/logs/rfid-cards'), Api.request('/api/door/pin')]);
+  const changePin = () => ctx.sensitive(() => {
+    const pinField = field('New door PIN', { name: 'door-pin', type: 'password', maxLength: 8, minLength: 4, inputmode: 'numeric', pattern: '[0-9]{4,8}', autocomplete: 'new-password' });
+    modal('Set keypad PIN', el('div', { class: 'stack' }, pinField.node, helpNote('Use 4 to 8 digits. The PIN is saved on this hub and sent to the door controller when connected.')), { onConfirm: async () => {
+      await Api.request('/api/door/pin', { method: 'PUT', body: { pin: pinField.input.value } });
+      ctx.render();
+    } });
+  });
   const edit = card => ctx.sensitive(async () => {
     const uidField = field('Card UID', { name: 'uid', value: card?.uid || '', readOnly: !!card, maxLength: 40 }); const label = field('Owner name', { name: 'owner_name', value: card?.owner_name || '' }); const auth = el('input', { type: 'checkbox', checked: card ? !!card.is_authorized : true, name: 'is_authorized' });
     modal(card ? 'Edit' : 'Add access card', el('div', { class: 'stack' }, uidField.node, label.node, el('label', { class: 'check-field' }, auth, t('Authorized'))), { onConfirm: async () => { await Api.request('/api/logs/rfid-cards' + (card ? '/' + encodeURIComponent(card.uid) : ''), { method: card ? 'PUT' : 'POST', body: { ...(card ? { version: card.version } : { uid: uidField.input.value }), owner_name: label.input.value, is_authorized: auth.checked } }); ctx.render(); } });
   });
-  return el('div', { class: 'settings-wrap stack access-cards-page' }, title('Access cards', 'Manage who can enter.', button('Add access card', () => edit(null), { kind: 'primary', symbol: 'plus' })), helpNote('UID cards can be cloned. Only an owner can manage access.'),
+  return el('div', { class: 'settings-wrap stack access-cards-page' }, title('Access cards', 'Manage who can enter.', el('div', { class: 'row row-wrap' }, button('Add access card', () => edit(null), { kind: 'primary', symbol: 'plus' }), button(pinState.configured ? 'Change keypad PIN' : 'Set keypad PIN', changePin, { symbol: 'lock' }))), helpNote('UID cards can be cloned. Changes reach the controller when it is connected. Only an owner can manage access.'),
     cards.length ? el('div', { class: 'stack' }, cards.map(card => el('article', { class: 'card stack-tight' }, el('div', { class: 'row' }, well('card'), el('div', { class: 'grow' }, el('h2', {}, card.owner_name), el('p', { class: 'small muted' }, '••:••:' + card.uid.split(':').slice(-2).join(':'))), status(card.is_authorized ? 'Authorized' : 'Not authorized', card.is_authorized ? 'success' : 'neutral')),
       el('div', { class: 'row row-wrap' }, button('Edit', () => edit(card), { symbol: 'edit' }), button('Remove card', () => ctx.sensitive(() => modal('Remove card', el('p', {}, card.owner_name), { confirmLabel: 'Remove', danger: true, onConfirm: async () => { await Api.request('/api/logs/rfid-cards/' + encodeURIComponent(card.uid), { method: 'DELETE', body: {} }); ctx.render(); } })), { kind: 'ghost' }))))) : empty('No cards added', 'Add access card', button('Add access card', () => edit(null), { kind: 'primary' })));
 }
-const eventLabels = { demo_light_changed: 'Demo light updated', demo_scenario: 'Demo sensor scenario updated', demo_preferences: 'Demo preferences updated', demo_reset: 'Demo home reset', demo_alert_viewed: 'Demo alert viewed', command_queued: 'Queued for home hub', command_delivered: 'Waiting for home hub', command_pending_observation: 'Waiting for controller', command_rejected: 'Request rejected', command_expired: 'Request expired', command_failed: 'Request failed', command_uncertain: 'Not confirmed', gateway_report: 'Last report', metadata_updated: 'Home details', command: 'Request sent', command_requested: 'Request accepted', command_observed: 'Controller reports', status_change: 'Last report', rfid_scan: 'Access cards', rfid_card_added: 'Add access card', rfid_card_removed: 'Remove card', rfid_card_updated: 'Access cards', sensor_data: 'Sensors', alert_opened: 'View alert', user_created: 'System', device_updated: 'Edit' };
+const eventLabels = { demo_light_changed: 'Demo light updated', demo_scenario: 'Demo sensor scenario updated', demo_preferences: 'Demo preferences updated', demo_reset: 'Demo home reset', demo_alert_viewed: 'Demo alert viewed', command_queued: 'Queued for home hub', command_delivered: 'Waiting for home hub', command_pending_observation: 'Waiting for controller', command_rejected: 'Request rejected', command_expired: 'Request expired', command_failed: 'Request failed', command_uncertain: 'Not confirmed', gateway_report: 'Last report', metadata_updated: 'Home details', command: 'Request sent', command_requested: 'Request accepted', command_observed: 'Controller reports', status_change: 'Last report', rfid_scan: 'Access cards', keypad_entry: 'Keypad entry', door_pin_updated: 'Keypad PIN changed', rfid_card_added: 'Add access card', rfid_card_removed: 'Remove card', rfid_card_updated: 'Access cards', sensor_data: 'Sensors', alert_opened: 'View alert', user_created: 'System', device_updated: 'Edit' };
 function activityRow(row) {
   const d = deviceById(row.device_id); let details = row.details; if (typeof details === 'string') try { details = JSON.parse(details); } catch { details = {}; }
   const description = [details?.action && t(details.action), details?.status && t(details.status), details?.authorized !== undefined && t(details.authorized ? 'Authorized' : 'Not authorized')].filter(Boolean).join('. ');
@@ -174,8 +182,8 @@ async function activityView(ctx) {
 function alertsView(ctx, id) {
   const filter = ctx.filters.alerts || 'active'; const alerts = state.snapshot.alerts.filter(a => id ? a.id === id : a.state === filter);
   if (id && !alerts.length) return notFound();
-  const cards = alerts.map(a => el('article', { class: 'card stack' }, el('div', { class: 'row' }, well(a.kind === 'gas' ? 'gas' : 'motion', a.kind === 'gas' ? 'gas' : 'motion'), el('div', {}, el('h2', {}, t(a.kind === 'gas' ? 'Gas sensor reports a possible issue.' : 'Movement was detected.')), el('p', { class: 'small muted' }, dateText(a.opened_at)))), status(a.state === 'active' ? 'Active' : 'History', a.state === 'active' && a.severity === 'critical' ? 'danger' : 'neutral'),
-    a.kind === 'gas' && helpNote('Uncalibrated reading. Use an independent gas alarm.'), el('p', { class: 'small muted' }, t('Acknowledging does not clear the sensor warning.')),
+  const cards = alerts.map(a => el('article', { class: 'card stack' }, el('div', { class: 'row' }, well(a.kind === 'gas' ? 'gas' : a.kind === 'access_denied' ? 'lock' : 'motion', a.kind === 'gas' ? 'gas' : a.kind === 'access_denied' ? 'door' : 'motion'), el('div', {}, el('h2', {}, t(a.kind === 'gas' ? 'Gas sensor reports a possible issue.' : a.kind === 'access_denied' ? 'Door access was denied.' : 'Movement was detected.')), el('p', { class: 'small muted' }, dateText(a.opened_at)))), status(a.state === 'active' ? 'Active' : 'History', a.state === 'active' && a.severity === 'critical' ? 'danger' : 'neutral'),
+    a.kind === 'gas' && helpNote('Uncalibrated reading. Use an independent gas alarm.'), el('p', { class: 'small muted' }, t('Acknowledging records that you saw this alert.')),
     el('div', { class: 'row row-wrap' }, navButton('View alert', '/security/alerts/' + a.id, 'arrow'), navButton('View details', '/devices/' + a.device_id, 'arrow'), control() && button(a.receipt.acknowledged_at ? 'Acknowledged' : "I've seen this", async () => { await Api.request('/api/alerts/' + a.id + '/acknowledge', { method: 'POST', body: {} }); await ctx.refresh(); }, { disabled: !!a.receipt.acknowledged_at }))));
   if (id && !alerts[0].receipt.read_at && !ctx.readingAlerts.has(id)) { ctx.readingAlerts.add(id); Api.request('/api/alerts/' + id + '/read', { method: 'POST', body: {} }).then(ctx.refresh).catch(() => ctx.readingAlerts.delete(id)); }
   return el('div', { class: 'settings-wrap stack alerts-page' }, title('Alerts'), !id && el('div', { class: 'filters' }, ['active', 'resolved'].map(k => button(k === 'active' ? 'Active' : 'History', () => { ctx.filters.alerts = k; ctx.render(); }, { className: 'chip', 'aria-pressed': String(k === filter) }))), cards.length ? el('div', { class: 'stack' }, cards) : empty(filter === 'active' ? 'No active alerts' : 'No past alerts', null, navButton('Security', '/security', 'shield')));
@@ -216,7 +224,7 @@ function notificationsView(ctx) {
   const permission = 'Notification' in window ? Notification.permission : 'unsupported';
   return el('div', { class: 'settings-wrap stack' }, title('Notifications'), el('section', { class: 'card stack' }, el('p', {}, t('Permission'), ': ', t(({ granted:'Enabled', denied:'Blocked', default:'Not enabled', unsupported:'Not supported' })[permission])), el('p', { class: 'muted' }, t('In-app alerts stay available. Background delivery is not guaranteed.')), permission === 'denied' && el('p', { class: 'small muted' }, t('Notifications are blocked in this browser. You can change this in browser settings.')),
     permission === 'default' && button('Enable browser notifications', async () => { await Notification.requestPermission(); ctx.render(); }, { symbol: 'bell', kind: 'primary' }),
-    [['gas', 'Gas sensor'], ['motion', 'Motion sensor']].map(([key, label]) => checkbox(label, state.snapshot.preferences.notification_categories.includes(key), checked => { const old = state.snapshot.preferences.notification_categories; ctx.preference({ notification_categories: checked ? [...new Set([...old, key])] : old.filter(k => k !== key) }); }, undefined, !!ctx.preferenceBusy))));
+    [['gas', 'Gas sensor'], ['motion', 'Motion sensor'], ['access_denied', 'Door access denied']].map(([key, label]) => checkbox(label, state.snapshot.preferences.notification_categories.includes(key), checked => { const old = state.snapshot.preferences.notification_categories; ctx.preference({ notification_categories: checked ? [...new Set([...old, key])] : old.filter(k => k !== key) }); }, undefined, !!ctx.preferenceBusy))));
 }
 async function homeSettings(ctx) {
   if (Api.mode === 'cloud') { const homes = (await Api.request('/api/households')).items; const chooser = homes.length > 1 ? select('Home', 'active-household', homes.map(home => ({ value: home.household_id, label: home.name })), state.session.household_id) : null; if (chooser) { chooser.input.disabled = !!ctx.switchingHome; chooser.input.addEventListener('change', event => ctx.switchHome(event.target.value)); } return el('div', { class: 'settings-wrap stack' }, title('Home details'), el('section', { class: 'card stack' }, chooser?.node, dataList({ 'Home name': state.snapshot.home.home_name }), el('p', {}, t('Manage home details and rooms on the home hub.')))); }

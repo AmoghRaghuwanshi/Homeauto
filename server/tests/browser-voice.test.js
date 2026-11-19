@@ -55,6 +55,23 @@ test('interim-only speech never becomes a command; microphone and network failur
     assert.equal(f.errors[0].code, expected); assert.equal(f.messages.filter(m => m.type === 'transcript').length, 0);
   }
 });
+test('network recognition failure retries with an installed on-device Web Speech pack', async t => {
+  const f = clientFixture(); t.after(() => f.capture.cancel());
+  f.scope.SpeechRecognition.prototype.processLocally = false;
+  f.scope.SpeechRecognition.available = async () => 'available';
+  await f.capture.start('en');
+  const remote = f.recognizers[0];
+  await remote.onerror({ error: 'network' }); await flush();
+  assert.equal(f.recognizers.length, 2);
+  assert.equal(f.recognizers[1].processLocally, true);
+  assert.equal(f.recognizers[1].lang, 'en-IN');
+  assert.equal(f.errors.length, 0);
+  remote.onend?.();
+  f.recognizers[1].result('turn on light one', true);
+  f.recognizers[1].onend();
+  assert.equal(f.messages.at(-1).type, 'transcript');
+  assert.equal(f.messages.at(-1).text, 'turn on light one');
+});
 test('cancel, replacement turns and lost sockets retire stale recognizer callbacks', async t => {
   const f = clientFixture(); t.after(() => f.capture.cancel()); await f.capture.start();
   const stale = f.recognizers[0].onresult; f.capture.cancel();
@@ -106,6 +123,21 @@ test('saved browser voice overrides automatic ranking only within its reply lang
   assert.equal(spoken.at(-1).voice.voiceURI, 'local-en'); assert.equal(spoken.at(-1).volume, 1);
   await output.speak({ text: 'नमस्ते', language: 'hi', voiceKey: 'removed-voice', volume: NaN, rate: NaN });
   assert.equal(spoken.at(-1).voice.voiceURI, 'local-hi'); assert.equal(spoken.at(-1).volume, 1); assert.equal(spoken.at(-1).rate, 1);
+});
+
+test('automatic speech prefers named natural female voices and preserves explicit selection', () => {
+  const voices = [
+    { name: 'Local English', voiceURI: 'local', lang: 'en-IN', localService: true },
+    { name: 'Microsoft Aria Online (Natural)', voiceURI: 'aria', lang: 'en-US', localService: false },
+    { name: 'Microsoft Neerja Online (Natural)', voiceURI: 'neerja', lang: 'hi-IN', localService: false },
+    { name: 'Hindi default', voiceURI: 'hindi', lang: 'hi-IN', localService: true },
+  ];
+  const scope = {};
+  vm.runInNewContext(source('browser-voice.js') + ';this.select=selectBrowserVoice;this.key=browserVoiceKey;', scope);
+  assert.equal(scope.select('en', '', voices).voiceURI, 'aria');
+  assert.equal(scope.select('hi', '', voices).voiceURI, 'neerja');
+  assert.equal(scope.select('en', scope.key(voices[0]), voices).voiceURI, 'local');
+  assert.equal(scope.select('hi', scope.key(voices[1]), voices).voiceURI, 'neerja');
 });
 
 test('Hindi voice can arrive after an English-only initial list without early failure or listener leaks', async t => {

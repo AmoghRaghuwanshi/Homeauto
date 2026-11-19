@@ -55,12 +55,16 @@ export class BrowserVoiceCapture {
         if (!suppliedText.trim() || suppliedText.length > 500) throw { code: 'VOICE_REQUEST_TOO_LONG' };
         this.finalText = suppliedText; this.onTranscript?.(suppliedText, globalThis.HomeAutoLanguage.inputLanguage(suppliedText, language)); submit(); return;
       }
-      const recognition = this.recognition = new (recognitionConstructor())();
-      recognition.lang = recognitionLocale(language, this.getLanguage());
-      recognition.continuous = false; recognition.interimResults = true; recognition.maxAlternatives = 1;
-      recognition.onstart = () => { if (current()) this.setState('listening'); };
-      recognition.onresult = event => {
+      const locale = recognitionLocale(language, this.getLanguage());
+      const startRecognition = local => {
         if (!current()) return;
+        const recognition = this.recognition = new (recognitionConstructor())();
+        recognition.lang = locale;
+        if (local) recognition.processLocally = true;
+        recognition.continuous = false; recognition.interimResults = true; recognition.maxAlternatives = 1;
+        recognition.onstart = () => { if (current() && this.recognition === recognition) this.setState('listening'); };
+        recognition.onresult = event => {
+        if (!current() || this.recognition !== recognition) return;
         let final = '', interim = '';
         for (let i = 0; i < event.results.length; i++) {
           const value = event.results[i][0]?.transcript || '';
@@ -70,25 +74,38 @@ export class BrowserVoiceCapture {
         const text = (final + interim).trim();
         if (text.length > 500) return this.fail({ code: 'VOICE_REQUEST_TOO_LONG' });
         this.onTranscript?.(text, globalThis.HomeAutoLanguage.inputLanguage(text, language));
-      };
-      recognition.onerror = event => {
-        if (!current()) return;
+        };
+        recognition.onerror = async event => {
+        if (!current() || this.recognition !== recognition) return;
+        if (event.error === 'network' && !local && 'processLocally' in recognition &&
+            typeof recognitionConstructor().available === 'function' && !this.finalText) {
+          recognition.onend = recognition.onerror = null;
+          clearTimeout(this.deadline);
+          this.setState('permission');
+          try {
+            const availability = await recognitionConstructor().available({ langs: [locale], processLocally: true });
+            if (!current()) return;
+            if (availability === 'available') { startRecognition(true); return; }
+          } catch { if (!current()) return; }
+        }
         const code = ({ 'not-allowed': 'MICROPHONE_DENIED', 'service-not-allowed': 'MICROPHONE_DENIED',
           'audio-capture': 'MICROPHONE_UNAVAILABLE', 'no-speech': 'MICROPHONE_NO_SPEECH',
           'network': 'BROWSER_RECOGNITION_NETWORK', 'language-not-supported': 'BROWSER_LANGUAGE_UNAVAILABLE',
           'aborted': 'VOICE_CANCELLED' })[event.error] || 'BROWSER_RECOGNITION_FAILED';
         this.fail({ code });
-      };
-      recognition.onend = () => {
-        if (!current()) return;
+        };
+        recognition.onend = () => {
+        if (!current() || this.recognition !== recognition) return;
         clearTimeout(this.deadline); clearTimeout(this.endDeadline);
         this.recognition = null;
         if (!this.finalText) return this.fail({ code: 'MICROPHONE_NO_SPEECH' });
         if (ws.readyState !== 1) return this.fail({ code: 'VOICE_CONNECTION_LOST' });
         submit();
+        };
+        recognition.start();
+        this.deadline = setTimeout(() => { if (current()) this.end(); }, 18000);
       };
-      recognition.start();
-      this.deadline = setTimeout(() => { if (current()) this.end(); }, 18000);
+      startRecognition(false);
     } catch (error) { if (current()) this.fail(error); }
   }
   submit(text, language = 'auto') { return this.start(language, false, { text }); }
@@ -115,7 +132,15 @@ export class BrowserVoiceCapture {
 export function browserSpeechAvailable() { return !!globalThis.speechSynthesis && !!globalThis.SpeechSynthesisUtterance; }
 export const browserVoiceKey = voice => JSON.stringify([voice.voiceURI || voice.name || '', voice.lang.toLowerCase().replaceAll('_', '-'), !!voice.localService]);
 export function matchingBrowserVoices(language, voices = globalThis.speechSynthesis?.getVoices() || []) {
-  const score = voice => Number(!!voice.localService) * 4 + Number(voice.lang.toLowerCase().replaceAll('_', '-') === language + '-in') * 2 + Number(!!voice.default);
+  // Web Speech has no gender or quality metadata. Prefer voices whose published
+  // names identify a natural female voice, then keep the local/Indian fallback.
+  const femaleName = /\b(female|aria|jenny|sonia|neerja|swara|zira|hazel)\b/i;
+  const score = voice => {
+    const name = voice.name || '';
+    const female = femaleName.test(name) && !/\bmale\b/i.test(name);
+    return Number(female && /\bnatural\b/i.test(name)) * 16 + Number(female) * 8 +
+      Number(!!voice.localService) * 4 + Number(voice.lang.toLowerCase().replaceAll('_', '-') === language + '-in') * 2 + Number(!!voice.default);
+  };
   return voices.filter(voice => voice.lang.toLowerCase().split(/[-_]/)[0] === language).sort((a, b) => score(b) - score(a));
 }
 export function selectBrowserVoice(language, preferred, voices) {

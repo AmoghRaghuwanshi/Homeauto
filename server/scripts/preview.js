@@ -29,7 +29,19 @@ async function createPreview({ port = 0, voice = false, loginRequired = false, c
   const config = { ...loadConfig({ ...process.env, HOMEAUTO_CLOUD_SYNC_ENABLED: '0', HOMEAUTO_GATEWAY_ENABLED: '0' }), HOST: '127.0.0.1', PORT: port, KEY_PATH: '', CERT_PATH: '', MQTT_ENABLED: false, VOICE_ENABLED: voice, CAMERA_MODE: cameraMode, CLOUD_SYNC: null, GATEWAY: null };
   let moduleSettings = null;
   const moduleStore = { load: () => moduleSettings, save: value => { moduleSettings = structuredClone(value); } };
-  const runtime = await startRuntime(config, { repo, home, sessions, moduleStore, broker: { close: async () => {} } });
+  // Keep the simulator's door PIN separate from the household's encrypted file.
+  let simulatedPin = null;
+  const doorConfig = {
+    pin: () => simulatedPin,
+    configured: () => simulatedPin !== null,
+    async setPin(pin) {
+      if (typeof pin !== 'string' || !/^[0-9]{4,8}$/.test(pin)) {
+        const { fail } = require('../lib/errors'); fail('INVALID_DOOR_PIN', 400);
+      }
+      simulatedPin = pin;
+    },
+  };
+  const runtime = await startRuntime(config, { repo, home, sessions, moduleStore, doorConfig, broker: { close: async () => {} } });
   // This heartbeat is explicitly an isolated simulator; no TCP/MQTT device link.
   const timer = heartbeat ? setInterval(() => {
     for (const id of ['light-1','light-2','light-3','light-4','door-1']) {

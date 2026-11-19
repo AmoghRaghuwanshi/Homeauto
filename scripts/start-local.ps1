@@ -31,17 +31,17 @@ function Assert-PortAvailable([int]$Port) {
     } finally { $client.Dispose() }
 }
 
-function Get-Node22 {
+function Get-SupportedNode {
     $candidates = @($env:HOMEAUTO_NODE)
     $command = Get-Command node.exe -ErrorAction SilentlyContinue
     if ($command) { $candidates += $command.Source }
     foreach ($candidate in $candidates) {
         if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) {
             $version = & $candidate --version
-            if ($LASTEXITCODE -eq 0 -and $version -match '^v22\.') { return $candidate }
+            if ($LASTEXITCODE -eq 0 -and $version -match '^v(22|26)\.') { return $candidate }
         }
     }
-    throw 'Node.js 22 is required. Install Node.js 22, or set HOMEAUTO_NODE to its node.exe path.'
+    throw 'Node.js 22 or 26 is required. Install a tested version, or set HOMEAUTO_NODE to its node.exe path.'
 }
 
 function Wait-Service([string]$Kind, $Process, [string]$ErrorLog) {
@@ -68,7 +68,7 @@ try {
     Write-Host "Starting HomeAuto $Mode..."
     if (-not (Test-ServiceReady 'home')) {
         Assert-PortAvailable $servicePort
-        $node = Get-Node22
+        $node = Get-SupportedNode
         $serverDirectory = Join-Path $projectRoot 'server'
         if (-not (Test-Path -LiteralPath (Join-Path $serverDirectory 'node_modules\express\package.json'))) {
             throw "Dependencies are missing. Run npm ci --ignore-scripts --prefix server from $projectRoot, then run this launcher again."

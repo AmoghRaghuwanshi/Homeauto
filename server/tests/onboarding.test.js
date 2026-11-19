@@ -9,6 +9,23 @@ const { createGatewaySetup } = require('../online/gateway-setup');
 const { gatewayEnvironment } = require('../scripts/with-gateway');
 const load = name => import('data:text/javascript;base64,' + fs.readFileSync(path.join(__dirname,'../../public/js',name)).toString('base64'));
 
+test('domain demo restores only for the same signed-in account and household', async t => {
+  const { Api } = await load('api.js');
+  const saved = global.sessionStorage;
+  const entries = new Map();
+  global.sessionStorage = { getItem: key => entries.get(key) || null, setItem: (key, value) => entries.set(key, value), removeItem: key => entries.delete(key) };
+  t.after(() => { Api.exitDemo(); Api.mode = 'local'; if (saved === undefined) delete global.sessionStorage; else global.sessionStorage = saved; });
+  const session = { user: { id: 'owner-1' }, household_id: 'home-1' };
+  Api.mode = 'cloud';
+  assert.equal(Api.restoreDemo(session), false);
+  Api.startDemo(session, { request() {} });
+  assert.equal(Api.restoreDemo(session), true);
+  assert.equal(Api.restoreDemo({ ...session, user: { id: 'owner-2' } }), false);
+  assert.equal(Api.restoreDemo({ ...session, household_id: 'home-2' }), false);
+  Api.mode = 'local'; assert.equal(Api.restoreDemo(session), false);
+  Api.mode = 'cloud'; Api.exitDemo(); assert.equal(Api.restoreDemo(session), false);
+});
+
 test('gateway enrollment requires a current reauthenticated owner and isolates private credentials', async t => {
   const f=await onlineFixture();t.after(()=>f.close());const auth=createCloudAuth(f.pool,{secure:false}),setup=createGatewaySetup(f.pool,'https://synthetic.invalid');
   await auth.register('gateway-new','New home',f.password,'enroll-register');

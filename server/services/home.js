@@ -10,7 +10,7 @@ class Home extends EventEmitter {
     super(); this.repo = repo; this.now = now; this.publisher = publisher; this.allowDoor = allowDoor; this.simulation = simulation;
     this.epoch = crypto.randomUUID(); this.connected = false; this.fault = null;
     this.boards = { lights: { name: 'ESP32-A (Lights + Sensors)', online: false, lastSeen: null }, door: { name: 'ESP32-B (Door Security)', online: false, lastSeen: null } };
-    this.observations = new Map(); this.scanTimes = new Map();
+    this.observations = new Map(); this.scanTimes = new Map(); this.doorConfig = null;
   }
   emitChange() { this.emit('change'); }
   hardwareReady() { return Object.keys(this.boards).some(id => this.boardOnline(id)); }
@@ -50,6 +50,22 @@ class Home extends EventEmitter {
     if (!connected) { for (const b of Object.values(this.boards)) b.online = false; this.expire(true); }
     this.emitChange();
   }
+  publishDoorCards() {
+    if (!this.connected || !this.publisher || !this.repo.healthy()) return false;
+    const cards = this.repo.all('SELECT uid FROM rfid_cards WHERE is_authorized=1 ORDER BY uid');
+    const payload = cards.map(card => card.uid).join(',');
+    // PubSubClient's default receive buffer is 256 bytes in the supplied door sketch.
+    if (Buffer.byteLength(payload) > 200) { this.fault = 'CARD_LIST_TOO_LARGE'; this.emitChange(); return false; }
+    this.publisher('home/door/1/config/cards', payload, { qos: 1, retain: true }, () => {});
+    return true;
+  }
+  publishDoorPin() {
+    const pin = this.doorConfig?.pin();
+    if (!pin || !this.connected || !this.publisher) return false;
+    this.publisher('home/door/1/config/pin', pin, { qos: 1, retain: true }, () => {});
+    return true;
+  }
+  syncDoorConfiguration() { this.publishDoorCards(); this.publishDoorPin(); }
   challenge(actor) {
     authorize(actor, 'unlock', this.now());
     if (!this.allowDoor) fail('DOOR_SAFETY_SETUP_REQUIRED', 503);
@@ -141,10 +157,19 @@ class Home extends EventEmitter {
       } else { if (typeof data.motion !== 'boolean') return false; status = data.motion ? 'detected' : 'clear'; }
     } else if (parts[3] === 'rfid' && id === 'door-1') {
       if (packet.retain) return false;
-      try { data = JSON.parse(str); this.onScan(data); return true; } catch { return false; }
+      try { data = JSON.parse(str); return this.onScan(data); } catch { return false; }
+    } else if (parts[3] === 'keypad' && id === 'door-1') {
+      if (packet.retain) return false;
+      try { data = JSON.parse(str); return this.onKeypad(data); } catch { return false; }
     } else return false;
     if (!packet.retain) { this.boards[reg.board_id].online = true; this.boards[reg.board_id].lastSeen = this.now(); }
-    if (status === 'denied') { if (!packet.retain) this.repo.log(id, 'access_denied', { authorized: false }); this.emitChange(); return true; }
+    if (status === 'denied') {
+      if (!packet.retain) this.repo.transaction(tx => {
+        this.repo.log(id, 'access_denied', { authorized: false }, null, null, tx);
+        this.sensorAlert(id, true, 'access_denied', 'warning', tx);
+      });
+      this.emitChange(); return true;
+    }
     const previous = this.observations.get(id);
     const observation = { status, time: this.now(), epoch: this.epoch, retained: !!packet.retain };
     // Retained snapshots are useful history but can never overwrite a live report.
@@ -165,6 +190,7 @@ class Home extends EventEmitter {
         }
         if (!packet.retain && id === 'sensor-gas') this.sensorAlert(id, status === 'alert', 'gas', 'critical', tx);
         if (!packet.retain && id === 'sensor-motion') this.sensorAlert(id, status === 'detected', 'motion', 'info', tx);
+        if (!packet.retain && id === 'door-1') this.sensorAlert(id, false, 'access_denied', 'warning', tx);
       }); observation.persistedAt = this.now();
     } else observation.persistedAt = previous.persistedAt;
     this.observations.set(id, observation); this.emitChange(); return true;
@@ -176,15 +202,32 @@ class Home extends EventEmitter {
     else if (existing) tx.run("UPDATE alerts SET state='resolved',resolved_at=?,last_seen_at=?,version=version+1 WHERE id=?", [time, time, existing.id]);
   }
   onScan(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.authorized !== 'boolean') return false;
     const uid = require('../lib/errors').uid(data.uid); const last = this.scanTimes.get(uid);
-    if (last !== undefined && this.now() - last < 2000) return;
+    if (last !== undefined && this.now() - last < 2000) return true;
     this.scanTimes.set(uid, this.now()); if (this.scanTimes.size > 1000) this.scanTimes.clear();
     this.boards.door.online = true; this.boards.door.lastSeen = this.now();
-    const card = this.repo.one('SELECT * FROM rfid_cards WHERE uid=?', [uid]); const allowed = !!(card?.is_authorized && this.allowDoor && this.repo.healthy());
-    this.repo.log('door-1', 'rfid_scan', { authorized: allowed, uid });
-    if (allowed) this.request('door-1', { action: 'unlock', idempotency_key: crypto.randomUUID() }, { user_id: 'rfid:door-1', role: 'resident' }, 'rfid');
-    else if (this.publisher && this.connected) this.publisher('home/door/1/command', 'deny', { qos: 0, retain: false }, () => {});
+    const card = this.repo.one('SELECT * FROM rfid_cards WHERE uid=?', [uid]);
+    const expected = !!card?.is_authorized;
+    this.repo.transaction(tx => {
+      this.repo.log('door-1', 'rfid_scan', { authorized: data.authorized, uid, configuration_mismatch: expected !== data.authorized }, null, null, tx);
+      if (!data.authorized) this.sensorAlert('door-1', true, 'access_denied', 'warning', tx);
+    });
+    // This firmware makes its access decision locally. A scan is a report, never
+    // another command to unlock or deny the door.
     this.emitChange();
+    return true;
+  }
+  onKeypad(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.authorized !== 'boolean') return false;
+    this.boards.door.online = true; this.boards.door.lastSeen = this.now();
+    // The supplied firmware includes the entered PIN in this event. Discard it.
+    this.repo.transaction(tx => {
+      this.repo.log('door-1', 'keypad_entry', { authorized: data.authorized }, null, null, tx);
+      if (!data.authorized) this.sensorAlert('door-1', true, 'access_denied', 'warning', tx);
+    });
+    this.emitChange();
+    return true;
   }
 }
 module.exports = { Home, defaults };

@@ -21,6 +21,12 @@ async function main() {
     await page.getByLabel('Type a request', { exact: true }).fill('do not unlock door'); await page.getByRole('button', { name: 'Send', exact: true }).click(); await page.waitForFunction(() => document.getElementById('assistant-messages')?.textContent.includes('negated')); result.checks.push('negated request rejected');
     await goto('/security/door'); await page.getByRole('button', { name: 'Unlock front door', exact: true }).click(); await page.getByLabel('Password', { exact: true }).fill(preview.credentials.password); await page.getByRole('button', { name: 'Reauthenticate', exact: true }).click(); await page.getByRole('dialog').filter({ hasText: 'Unlock front door' }).waitFor(); await page.getByRole('button', { name: 'Cancel', exact: true }).click(); result.checks.push('unlock reauthentication and Cancel');
     await goto('/security/access-cards'); await page.getByRole('button', { name: 'Add access card', exact: true }).first().click(); await page.getByLabel('Card UID', { exact: true }).fill('aa bb cc dd'); await page.getByLabel('Owner name', { exact: true }).fill('<img src=x onerror=alert(1)>'); await page.getByRole('button', { name: 'Save', exact: true }).click(); await page.getByRole('heading', { name: '<img src=x onerror=alert(1)>', exact: true }).waitFor(); assert.equal(await page.locator('img[src="x"]').count(), 0); result.checks.push('RFID creates, displays injection as text');
+    await page.getByRole('button', { name: 'Set keypad PIN', exact: true }).click();
+    await page.getByLabel('New door PIN', { exact: true }).fill('2468');
+    await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByRole('button', { name: 'Change keypad PIN', exact: true }).waitFor();
+    assert.equal(await page.locator('body').innerText().then(text => text.includes('2468')), false);
+    result.checks.push('owner can set keypad PIN without exposing it in the page');
     await goto('/settings/appearance');
     const widths = [320, 390, 768, 1024, 1440]; const routes = ['/', '/rooms', '/security', '/assistant', '/settings'];
     for (const theme of ['05', '01', '03', '04']) {

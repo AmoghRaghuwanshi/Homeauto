@@ -9,7 +9,7 @@ const { Assistant } = require('../services/assistant');
 const { SpeechService } = require('../voice/speech-service');
 const { createApp } = require('../app');
 const { attachRealtime } = require('../realtime');
-let repo, home, sessions, speech, app, server, rt, base, cookie, csrf;
+let repo, home, sessions, speech, app, server, rt, base, cookie, csrf, doorPin = null;
 const password = 'a long isolated HTTP fixture password';
 async function api(route, method = 'GET', body, options = {}) {
   const response = await fetch(base + route, { method, headers: { Origin: base, ...(cookie ? { Cookie: cookie } : {}), ...(csrf ? { 'X-CSRF-Token': csrf } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...options }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -18,7 +18,9 @@ async function api(route, method = 'GET', body, options = {}) {
 test.before(async () => {
   repo = await createRepository(); home = new Home(repo, { simulation: true, publisher: (topic, action, options, cb) => cb() }); sessions = new Sessions(repo, { secure: false }); await sessions.addUser({ username: 'owner', password, can_unlock: true }); await sessions.addUser({ username: 'viewer', password, role: 'viewer' });
   const assistant = new Assistant(home); speech = new SpeechService(home, assistant, { VOICE_ENABLED: false });
-  app = createApp({ repo, home, sessions, assistant, speech }); server = http.createServer(app); rt = attachRealtime(server, { app, home, sessions, assistant, speech });
+  const doorConfig = { pin: () => doorPin, configured: () => !!doorPin, async setPin(pin) { if (!/^[0-9]{4,8}$/.test(pin)) { const { fail } = require('../lib/errors'); fail('INVALID_DOOR_PIN'); } doorPin = pin; } };
+  home.doorConfig = doorConfig;
+  app = createApp({ repo, home, sessions, assistant, speech, doorConfig }); server = http.createServer(app); rt = attachRealtime(server, { app, home, sessions, assistant, speech });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); base = 'http://127.0.0.1:' + server.address().port;
 });
 test.after(async () => { rt.close(); speech.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); repo.close(); });
@@ -60,6 +62,15 @@ test('local HTML and application modules cannot retain stale voice code in a bro
 test('CSRF required and unknown keys rejected', async () => { assert.equal((await api('/api/rooms', 'POST', { name: 'Study', idempotency_key: require('crypto').randomUUID() }, { 'X-CSRF-Token': 'bad' })).status, 403); assert.equal((await api('/api/devices/light-1', 'PUT', { name: 'x', version: 1, status: 'on' })).status, 400); });
 test('room create persists/idempotent; room rename and device reassignment preserve ID', async () => { const key = require('crypto').randomUUID(); const room = await api('/api/rooms', 'POST', { name: 'Study', idempotency_key: key }); assert.equal(room.status, 201); assert.equal((await api('/api/rooms', 'POST', { name: 'Study', idempotency_key: key })).value.id, room.value.id); const d = await api('/api/devices/light-1'); const result = await api('/api/devices/light-1', 'PUT', { name: 'Desk <img onerror=x>', room_id: room.value.id, version: d.value.version }); assert.equal(result.status, 200); assert.equal(result.value.id, 'light-1'); assert.equal(result.value.location, 'Study'); assert.equal((await api('/api/rooms/' + room.value.id, 'DELETE', {})).status, 409); });
 test('RFID requires reauth; duplicate create never silently replaces', async () => { assert.equal((await api('/api/logs/rfid-cards', 'POST', { uid: 'aa bb cc dd', owner_name: 'Test', is_authorized: true })).value.error.code, 'REAUTH_REQUIRED'); const re = await api('/api/auth/reauth', 'POST', { password }); cookie = re.cookie.split(';')[0]; csrf = re.value.csrf_token; const c = await api('/api/logs/rfid-cards', 'POST', { uid: 'aa bb cc dd', owner_name: 'Test', is_authorized: true }); assert.equal(c.status, 201); assert.equal((await api('/api/logs/rfid-cards', 'POST', { uid: 'AA:BB:CC:DD', owner_name: 'Overwrite', is_authorized: true })).status, 409); assert.equal((await api('/api/logs/rfid-cards')).value[0].owner_name, 'Test'); const revoked = await api('/api/logs/rfid-cards/AA:BB:CC:DD', 'PUT', { is_authorized: false, version: 1 }); assert.equal(revoked.value.is_authorized, 0); });
+test('owner keypad PIN endpoint validates and never returns the secret', async () => {
+  assert.deepEqual((await api('/api/door/pin')).value, { configured: false });
+  assert.equal((await api('/api/door/pin', 'PUT', { pin: '12AB' })).value.error.code, 'INVALID_DOOR_PIN');
+  const changed = await api('/api/door/pin', 'PUT', { pin: '2468' });
+  assert.equal(changed.status, 200);
+  assert.deepEqual(changed.value, { configured: true });
+  assert.deepEqual((await api('/api/door/pin')).value, { configured: true });
+  assert.equal(repo.one("SELECT details FROM activity_log WHERE event_type='door_pin_updated'").details, '{}');
+});
 test('activity bounded pagination and audit redaction', async () => { for (let i = 0; i < 5; i++) repo.log('door-1', 'rfid_scan', { uid: 'AA:BB:CC:DD', authorized: false }); const r = await api('/api/activity?limit=2'); assert.equal(r.value.items.length, 2); assert.ok(r.value.next_cursor); const n = await api('/api/activity?limit=2&cursor=' + r.value.next_cursor); assert.ok(n.value.items[0].id < r.value.items[1].id); assert.equal((await api('/api/logs?limit=-1')).status, 400); });
 test('unknown API returns JSON404; fixed device deletion rejected', async () => { assert.equal((await api('/api/unknown')).status, 404); assert.equal((await api('/api/devices/light-1', 'DELETE', {})).status, 409); });
 test('typed sensitive/negated actions cannot unlock', async () => { assert.equal((await api('/api/assistant/interpret', 'POST', { text: 'do not unlock door' })).status, 422); const p = await api('/api/assistant/interpret', 'POST', { text: 'unlock front door' }); const r = await api('/api/assistant/execute', 'POST', { intent_id: p.value.intent_id, idempotency_key: require('crypto').randomUUID() }); assert.equal(r.value.error.code, 'SENSITIVE_ACTION_REQUIRES_UI'); });

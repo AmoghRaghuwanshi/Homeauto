@@ -18,6 +18,12 @@ The existing homeauto project now serves [HomeAuto](https://homeauto.amoghbuilds
 
 Git-triggered deployment remains disabled by `git.deploymentEnabled=false` in vercel.json. These selections document the existing deployment and future imports. Keep Preview and Production database roles/branches separate and run the acceptance checks below for future releases. Do not enable remote-light flags when importing.
 
+## Simulation on the domain
+
+After a deployment containing the cloud demo UI is promoted to the domain, create an account or sign in at the domain. A new empty home shows **Explore demo home** beside **Connect gateway**. A connected home shows **Explore demo home** on Home. Select it to use simulated lights, sensor alerts, rooms and typed Shrimaan commands in the browser. The banner says **Demo home**; **Use my real home** exits. The demo remains selected across refresh in that browser tab and is scoped to the signed-in account and household. Its light states and favorites live in that tab's session storage; scenarios and activity reset on reload.
+
+The domain demo does not require an ESP32, MQTT broker or gateway. Its non-auth API operations are handled in the browser and cannot publish hardware commands. Door unlock, card administration and gateway enrollment are unavailable inside the demo. The domain's microphone is disabled by its Permissions Policy, so use typed assistant input there. The separate Windows simulation at `http://127.0.0.1:3002/` remains available for local testing and uses an in-memory server.
+
 ## Update an existing Vercel site
 
 Pushing to GitHub updates the source repository. It does not update this site's deployment while automatic Git deployment is disabled.

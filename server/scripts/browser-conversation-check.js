@@ -95,7 +95,7 @@ async function main() {
     await page.locator('#live-conversation-toggle').click(); await page.waitForFunction(() => window.qa.active);
     await page.evaluate(() => window.qa.active.onerror({ error: 'network' }));
     await page.waitForFunction(() => document.querySelector('#live-conversation-toggle').getAttribute('aria-pressed') === 'false');
-    assert.match(await page.locator('#assistant-messages').innerText(), /speech service/);
+    assert.match(await page.locator('#assistant-messages').innerText(), /Browser speech recognition is unavailable/);
     await page.locator('#assistant-mic').click(); await page.waitForFunction(() => window.qa.active);
     await page.evaluate(() => window.qa.result('Hello', true, false));
     await page.locator('#assistant-mic').click(); await page.waitForFunction(() => window.qa.played.at(-1).text.startsWith('Hello'));

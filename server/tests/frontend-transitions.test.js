@@ -52,3 +52,11 @@ test('transport blocks every non-auth mutation during a home transition before a
   const original=global.fetch;let requests=0;global.fetch=async()=>{requests++;return new Response('{}');};
   try {Api.mutationsPaused=true;for(const method of ['POST','PUT','DELETE'])await assert.rejects(Api.request('/api/devices/light-1/command',{method,body:{}}),{code:'HOME_SWITCH_IN_PROGRESS'});assert.equal(requests,0);await Api.request('/api/auth/session');assert.equal(requests,1);}finally{global.fetch=original;Api.mutationsPaused=false;}
 });
+
+test('all-lights action leaves the fourth relay fan unchanged in the real home',async()=>{
+  const f=coordinator();f.Api.demo=null;
+  f.state.snapshot.devices=['light-1','light-2','light-3','light-4'].map(id=>({id,type:'light'}));
+  const sent=[];f.ctx.command=async id=>{sent.push(id);return true;};
+  await f.ctx.bulkOff();
+  assert.deepEqual(sent,['light-1','light-2','light-3']);
+});

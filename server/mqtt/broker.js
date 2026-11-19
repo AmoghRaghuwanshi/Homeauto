@@ -9,7 +9,10 @@ function connectBroker(home, config) {
     if (!client.connected) return callback(new Error('Broker unavailable'));
     client.publish(topic, payload, options, callback);
   };
-  client.on('connect', () => client.subscribe(['home/light/+/status', 'home/door/1/status', 'home/door/1/rfid', 'home/sensor/+/data', 'home/esp32/+/online'], error => home.setConnected(!error)));
+  client.on('connect', () => client.subscribe(['home/light/+/status', 'home/door/1/status', 'home/door/1/rfid', 'home/door/1/keypad', 'home/sensor/+/data', 'home/esp32/+/online'], error => {
+    home.setConnected(!error);
+    if (!error) home.syncDoorConfiguration?.();
+  }));
   client.on('message', (topic, bytes, packet) => { try { home.ingest(topic, bytes, packet); } catch { home.fault = 'PERSISTENCE_UNAVAILABLE'; disconnected(); } });
   client.on('offline', disconnected); client.on('close', disconnected);
   client.on('error', () => { home.fault = 'BROKER_UNAVAILABLE'; home.emitChange(); });

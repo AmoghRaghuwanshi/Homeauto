@@ -12,7 +12,7 @@ export function refreshBrowserVoiceChoices(root = document) {
     const voices = matchingBrowserVoices(language);
     const unique = [...new Map(voices.map(voice => [browserVoiceKey(voice), voice])).values()];
     const selected = preferences[key];
-    const options = [el('option', { value: '' }, t('Automatic'))];
+    const options = [el('option', { value: '' }, t('Automatic (natural female when available)'))];
     if (selected && !unique.some(voice => browserVoiceKey(voice) === selected)) options.push(el('option', { value: selected }, t('Saved voice unavailable — using Automatic')));
     options.push(...unique.map(voice => el('option', { value: browserVoiceKey(voice) }, `${voice.name || voice.lang} · ${voice.lang} · ${t(voice.localService ? 'On-device' : 'Online voice')}`)));
     input.replaceChildren(...options); input.value = selected;
@@ -27,7 +27,7 @@ export function refreshBrowserVoiceChoices(root = document) {
 export function browserVoiceSettings(ctx) {
   const root = el('section', { class: 'card stack', 'aria-labelledby': 'browser-voices-title' },
     el('h2', { id: 'browser-voices-title' }, t('Browser voices')),
-    el('p', { class: 'small muted' }, t('Choose a voice for each language. Available voices vary by browser and device.')));
+    el('p', { class: 'small muted' }, t('Automatic prefers a natural female voice when available. You can choose and test any listed voice.')));
   for (const [language, label, key, previewLabel] of [['en', 'English voice', 'englishVoice', 'Test English voice'], ['hi', 'Hindi voice', 'hindiVoice', 'Test Hindi voice']]) {
     const choice = select(label, 'browser-voice-' + language, [], '');
     choice.input.setAttribute('aria-describedby', 'browser-voice-note-' + language);

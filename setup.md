@@ -32,7 +32,7 @@ Internet is needed initially to download source, Node packages, installers and o
 Install:
 
 1. **Git for Windows x64:** [official installer](https://git-scm.com/install/windows). Keep Git on PATH. Its default HTTPS credential manager can handle GitHub sign-in if access is requested.
-2. **Node.js 22.x x64:** select the Windows x64 installer from the [official Node 22 archive](https://nodejs.org/en/download/archive/v22). Include npm and add Node to PATH. This project requires major version 22; the latest general Node installer may install another major version.
+2. **Node.js 22.x or 26.x x64 for the local hub:** install Node 22 from the [official archive](https://nodejs.org/en/download/archive/v22), or use Node 26 as tested in this workspace. Include npm and add Node to PATH. The cloud build still targets Node 22.
 3. **Chrome or Edge:** use a current version for browser speech. Use the same browser profile consistently for preferences.
 4. **Optional later:** NVIDIA driver, Python, Mosquitto and Arduino IDE, as described below. They are not all prerequisites for opening the UI.
 
@@ -137,7 +137,7 @@ Invoke-RestMethod http://127.0.0.1:3001/api/runtime | Format-List
 
 Expected values include `mode: local`, `simulation: False`, `transport: websocket`, `device_transport: mqtt`. This proves the server profile, not device connectivity. Log files are `.local\launcher\homeauto.log` and `.local\launcher\homeauto-error.log`.
 
-If Node 22 is installed outside PATH, set its actual absolute path before launching:
+If a supported Node version is installed outside PATH, set its actual absolute path before launching:
 
 ```powershell
 $env:HOMEAUTO_NODE = 'C:\Program Files\nodejs\node.exe'
@@ -289,18 +289,18 @@ Run Mosquitto in a separate terminal, keeping it open:
 
 It must report a listener without certificate/path/ACL errors. Return to the repository terminal with `Set-Location "$env:USERPROFILE\Projects\HomeAuto"`, set `HOMEAUTO_MQTT_CA`, restart the hub if needed, and configure Modules. Confirm authenticated connection and ACL denial tests on a disconnected bench setup before attaching physical actuators. Do not publish sample control payloads to a live household broker.
 
-## 10. ESP32 commissioning: what is still required
+## 10. ESP32 commissioning: two-board VidyutRakshak revision
 
-The preserved sketches are `firmware/light_controller/light_controller.ino` and `firmware/door_security/door_security.ino`. They use separate logical controllers `lights` and `door`. They are **not** a finished combined single-ESP32 firmware. GPIO 4/5/18/19 conflict between the relay and RFID/door arrangements. Do not paste the sketches together or flash one expecting all modules to work.
+The linked [VidyutRakshak source](https://github.com/Mishrajishri/home-security-simple) uses two ESP32 boards. Its pin map and firmware differ from the older local sketches; use the [reviewed hardware integration map](docs/verification/VIDYUTRAKSHAK_HARDWARE_INTEGRATION.md) before wiring or flashing. The fourth `home/light/4` relay drives a fan, though its MQTT topic keeps the legacy name.
 
 Before physical use, the firmware engineer must:
 
-1. Install Arduino IDE and the Espressif ESP32 board support, select the exact board and its serial port, and install the libraries used by the chosen sketch (`PubSubClient`, `ArduinoJson`, plus `MFRC522` for RFID). Library/core versions are not pinned or physically validated in this repository; record the versions that compile and pass the bench tests.
-2. Use a verified wiring/power diagram and determine relay polarity. For a single board, implement and review a conflict-free pin map and both logical roles; this integration is pending.
+1. Install Arduino IDE and the Espressif ESP32 board support, select the exact board and its serial port, and install the libraries used by the linked sketches (`PubSubClient`, `ArduinoJson`, `MFRC522`, `LiquidCrystal_I2C`, `Keypad`). Library/core versions are not pinned or physically validated here; record versions that compile and pass bench tests.
+2. Verify the linked PCB wiring and relay polarity independently for each board. The door board also has a keypad and 16×4 LCD; do not combine the two sketches.
 3. Provision actual 2.4 GHz Wi-Fi settings and the new laptop/broker address privately. Old hardcoded addresses are not portable. USB only powers/programs the controller; commands use Wi-Fi.
-4. Replace the legacy anonymous/plain-TCP MQTT client with CA-verified TLS and dedicated board credentials. The current sketches cannot connect unchanged to the secure broker template. A single combined firmware needs a reviewed least-privilege principal/ACL covering both roles; do not reuse the owner/hub credentials.
-5. Preserve the exact existing MQTT topics and payload schemas. Lights use `home/light/1..4/command` and matching `/status`; door uses `home/door/1/command`, `/status`, `/rfid`; sensors use `home/sensor/gas/data`, `home/sensor/motion/data`; presence uses `home/esp32/lights/online` and `home/esp32/door/online`.
-6. Make reconnect nonblocking and prioritize timed relocking, including during Wi-Fi/broker loss. Current legacy blocking reconnect can delay the five-second relock.
+4. Replace the linked firmware's anonymous/plain-TCP MQTT client with CA-verified TLS and dedicated board credentials. The linked sketches cannot connect unchanged to the secure broker template; do not reuse the owner/hub credentials.
+5. Preserve the linked MQTT topics, including `home/door/1/config/pin`, `home/door/1/config/cards`, and `home/door/1/keypad`. The hub publishes card/PIN snapshots when connected and after dashboard changes. Treat a saved dashboard change as pending until the board actually receives it; offline boards retain their previous NVS access list/PIN.
+6. Fix the linked door sketch's blocking feedback and relock ordering before using a physical lock. `connectMQTT()` and denied feedback can block, and the relock check currently runs later in `loop()`.
 7. Compile and run supervised bench tests with low-voltage indicators first. Verify non-retained fresh reports, disconnection, reconnection, commands, permissions and failure handling. Never use retained or fabricated reports as proof of connection.
 
 Keep `HOMEAUTO_DOOR_ENABLED=0`. Do not enable door actuation until supervised power/relay/relock/outage/egress tests pass. The app has no bolt/contact sensor and cannot certify that a physical door is locked. This setup guide does not flash firmware or certify physical operation.
@@ -603,7 +603,7 @@ The public Vercel site is a separate runtime. A local owner account does not enr
 
 | Symptom | Check and next action |
 |---|---|
-| BAT says Node 22 required | `node --version`, PATH, or set `HOMEAUTO_NODE` to the actual Node 22 executable |
+| BAT says supported Node required | `node --version`, PATH, or set `HOMEAUTO_NODE` to a Node 22/26 executable |
 | `npm.ps1` blocked | Use `npm.cmd` as in this guide; no global execution-policy change is needed |
 | Dependencies missing | Run both `npm.cmd ci --ignore-scripts` commands from section 4 |
 | Port 3001 occupied | Identify its listener/process. Reuse the correct hub or stop only the verified conflicting process |

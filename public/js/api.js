@@ -4,7 +4,7 @@ export const Api = {
   mutationsPaused: false,
   demoMarker: 'homeauto.demo.active.v1',
   startDemo(session, model) { if(this.mode!=='cloud'||!model?.request)throw new Error('Demo is available online');this.sessionVersion++;this.demo=model;try{sessionStorage.setItem(this.demoMarker,JSON.stringify({version:1,user:session.user.id,home:session.household_id}));}catch{} },
-  restoreDemo() { return false; },
+  restoreDemo(session) { if (this.mode !== 'cloud' || !session?.user?.id || !session?.household_id) return false; try { const marker = JSON.parse(sessionStorage.getItem(this.demoMarker) || 'null'); return marker?.version === 1 && marker.user === session.user.id && marker.home === session.household_id; } catch { return false; } },
   exitDemo() { this.sessionVersion++;this.demo=null;try{sessionStorage.removeItem(this.demoMarker);}catch{} },
   sessionVersion: 0,
   async initialize() {

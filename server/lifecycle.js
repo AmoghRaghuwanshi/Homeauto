@@ -11,6 +11,7 @@ const { BrowserSpeechService } = require('./voice/browser-speech-service');
 const { CameraService } = require('./camera/service');
 const { ModuleStore } = require('./modules/store');
 const { ModuleService } = require('./modules/service');
+const { DoorConfig } = require('./services/door-config');
 const { createApp } = require('./app');
 const { attachRealtime } = require('./realtime');
 const { connectBroker } = require('./mqtt/broker');
@@ -30,6 +31,7 @@ function loadConfig(env = process.env) {
     DOOR_ENABLED: env.HOMEAUTO_DOOR_ENABLED === '1', VOICE_ENABLED: env.HOMEAUTO_VOICE_ENABLED !== '0',
     CAMERA_MODE: env.HOMEAUTO_CAMERA_MODE || 'disabled',
     MODULES_PATH: env.HOMEAUTO_MODULES_PATH || path.join(local, 'modules.enc.json'),
+    DOOR_CONFIG_PATH: env.HOMEAUTO_DOOR_CONFIG_PATH || path.join(local, 'door-config.enc.json'),
   };
 }
 async function startRuntime(config = loadConfig(), overrides = {}) {
@@ -39,6 +41,8 @@ async function startRuntime(config = loadConfig(), overrides = {}) {
   let speech, camera, broker, realtime, server, timer, maintenanceTimer, syncWorker, gatewayWorker, closed = false;
   try {
     const home = overrides.home || new Home(repo, { allowDoor: config.DOOR_ENABLED });
+    const doorConfig = overrides.doorConfig || new DoorConfig(config.DOOR_CONFIG_PATH || path.join(__dirname, '../.local/door-config.enc.json'));
+    home.doorConfig = doorConfig;
     home.hardwareRequired = !home.simulation;
     const sessions = overrides.sessions || new Sessions(repo, { secure });
     const assistant = new Assistant(home); speech = overrides.speech || new BrowserSpeechService(home, assistant, config);
@@ -59,7 +63,7 @@ async function startRuntime(config = loadConfig(), overrides = {}) {
     });
     if (config.CLOUD_SYNC) syncWorker = createSyncWorker(repo, config.CLOUD_SYNC);
     if (config.GATEWAY) gatewayWorker = createGatewayWorker(home, config.GATEWAY);
-    const app = createApp({ repo, home, sessions, assistant, speech, camera, modules, config, cloudStatus: () => config.GATEWAY ? gatewayStatus(repo,true) : syncStatus(repo, !!config.CLOUD_SYNC) });
+    const app = createApp({ repo, home, sessions, assistant, speech, camera, modules, doorConfig, config, cloudStatus: () => config.GATEWAY ? gatewayStatus(repo,true) : syncStatus(repo, !!config.CLOUD_SYNC) });
     server = secure ? https.createServer({ key: fs.readFileSync(config.KEY_PATH), cert: fs.readFileSync(config.CERT_PATH) }, app) : http.createServer(app);
     realtime = attachRealtime(server, { app, home, sessions, assistant, speech });
     broker = overrides.broker || connectBroker(home, config);

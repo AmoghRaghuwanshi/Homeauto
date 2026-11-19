@@ -7,9 +7,13 @@ const heading=pageHeader;
 export function welcomeHome(ctx) {
   const owner=state.session.user.role==='owner';
   return el('div', { class: 'stack onboarding-page' }, heading('Set up your home', 'Connect your home hub and ESP32 to start.'),
-    el('section', { class: 'card stack' }, el('h2', {}, t('Connect your gateway')),
-      el('p', {}, t('Your devices will appear after the gateway receives current controller reports.')),
-      owner ? link('Connect gateway', '/settings/gateway', 'button button-primary') : el('p', {}, t('Ask the home owner to connect a gateway.'))));
+    el('div', { class: 'onboarding-options' },
+      el('section', { class: 'card stack onboarding-primary' }, icon('home'), el('h2', {}, t('Connect your gateway')),
+        el('p', {}, t('Your devices will appear after the gateway receives current controller reports.')),
+        owner ? link('Connect gateway', '/settings/gateway', 'button button-primary') : el('p', {}, t('Ask the home owner to connect a gateway.'))),
+      el('section', { class: 'card stack' }, icon('bulb'), el('h2', {}, t('Explore a demo home')),
+        el('p', {}, t('Try lights, rooms, sensors and Shrimaan without connecting hardware. Everything in the demo is simulated.')),
+        button('Explore demo home', ctx.startDemo, { kind: 'secondary' }))));
 }
 function downloadConfig(config) {
   const blob=new Blob([JSON.stringify(config,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);

@@ -56,12 +56,12 @@ test('natural Hindi plurals, spelling and spoken English numerals retain explici
   const home = new Home(repo);
   const { resolveCommand } = require('../voice/intent');
   for (const [text, ids] of [
-    ['सभी लाइटें बंद करो।', ['light-1','light-2','light-3','light-4']],
-    ['सारी लाइट्स बन्द कर दो।', ['light-1','light-2','light-3','light-4']],
+    ['सभी लाइटें बंद करो।', ['light-1','light-2','light-3']],
+    ['सारी लाइट्स बन्द कर दो।', ['light-1','light-2','light-3']],
     ['रूम वन की लाइट बंद करो।', ['light-1','light-2']],
     ['कमरे एक की बत्तियाँ बंद करो।', ['light-1','light-2']],
     ['कम्रा एक की लाईट बंद करो', ['light-1','light-2']],
-    ['सभी लाईटे बंद करो।', ['light-1','light-2','light-3','light-4']],
+    ['सभी लाईटे बंद करो।', ['light-1','light-2','light-3']],
   ]) {
     const result = resolveCommand(text, repo.getDevices(), home.rooms());
     assert.equal(result.ok, true, text); assert.equal(result.intent.action, 'off'); assert.deepEqual(result.intent.device_ids, ids);

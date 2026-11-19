@@ -22,24 +22,27 @@ function resolveCommand(input, devices, rooms, aliases = []) {
   if (phrase(s, ['tomorrow','later','after','before','when','then','until','if','कल','बाद','जब','agar','baad','kal']) && !/^check if\s/.test(s)) return reject('unsupported');
   if (phrase(s, ['not', 'don t', 'dont', 'never', 'मत', 'नहीं', 'नही', 'mat', 'nahi', 'nahin'])) return reject('negated');
   if (phrase(s, ['except', 'excluding', 'unless', 'but', 'लेकिन', 'छोड़कर', 'ना'])) return reject('unsupported');
-  if (phrase(s, ['camera', 'ac', 'fan', 'curtain', 'music', 'temperature', 'dim', 'brightness', 'कैमरा', 'पंखा', 'तापमान'])) return reject('unsupported');
+  if (phrase(s, ['camera', 'ac', 'curtain', 'music', 'temperature', 'dim', 'brightness', 'कैमरा', 'तापमान'])) return reject('unsupported');
   const query = phrase(s, ['status', 'check', 'what', 'is', 'are', 'स्थिति', 'क्या', 'kya', 'haal']);
   const door = phrase(s, ['door', 'gate', 'दरवाजा', 'दरवाज़ा', 'गेट', 'darwaza', 'darwaja']);
   const gas = phrase(s, ['gas', 'गैस']); const motion = phrase(s, ['motion', 'movement', 'मोशन', 'हलचल']);
+  const fan = phrase(s, ['fan', 'पंखा', 'pankha']);
+  if (fan && phrase(s, ['light', 'lights', 'lamp', 'lamps', 'लाइट', 'बत्ती'])) return reject('conflicting');
   const homeQuery = query && phrase(s, ['home', 'house', 'घर', 'ghar']);
   const on = phrase(s, ['on', 'चालू', 'ऑन', 'जलाओ', 'जला', 'chalu', 'jala', 'jalao']);
   const off = phrase(s, ['off', 'बंद', 'बुझाओ', 'बुझा', 'ऑफ', 'band', 'bandh', 'bujhao']);
   const unlock = phrase(s, ['unlock', 'open', 'अनलॉक', 'खोलो', 'खोल', 'kholo', 'khol']);
   const lock = phrase(s, ['lock', 'close', 'secure', 'लॉक', 'ताला', 'tala']);
-  if ([door, gas, motion].filter(Boolean).length > 1 || on && off || unlock && lock) return reject('conflicting');
+  if ([door, gas, motion, fan].filter(Boolean).length > 1 || on && off || unlock && lock) return reject('conflicting');
   let action = null, targets = [], targetSource = 'explicit_device';
   if (homeQuery) { action = 'query'; targets = devices.map(d => d.id); targetSource = 'explicit_all'; }
   else if (gas || motion) { if (!query || on || off || lock || unlock) return reject('unsupported'); action = 'query'; targets = [gas ? 'sensor-gas' : 'sensor-motion']; }
   else if (door) { action = query ? 'query' : unlock ? 'unlock' : lock || off ? 'lock' : null; targets = ['door-1']; }
+  else if (fan) { if (unlock || lock) return reject('unsupported'); action = query ? 'query' : on ? 'on' : off ? 'off' : null; targets = ['light-4']; }
   else {
     if (unlock || lock) return reject('unsupported');
     action = query ? 'query' : on ? 'on' : off ? 'off' : null;
-    const lights = devices.filter(d => d.type === 'light');
+    const lights = devices.filter(d => d.type === 'light' && d.id !== 'light-4');
     if (phrase(s, ['all', 'every', 'सब', 'सारी', 'सारे', 'सभी', 'sab', 'saari', 'sabhi'])) { targets = lights.map(d => d.id); targetSource = 'explicit_all'; }
     else {
       const numbers = [...s.matchAll(/(?:^|\s)(?:light|lamp|लाइट|बत्ती)\s*(\d+)(?=\s|$)/gu)];
@@ -63,7 +66,7 @@ function resolveCommand(input, devices, rooms, aliases = []) {
   if (numeric.length && phrase(s, ['all','every','सब','सारी','सारे','सभी','sab','saari','sabhi'])) return reject('unsupported');
   const roomMatches = rooms.filter(r => phrase(s, [normalize(r.name), 'room ' + r.id.slice(-1), 'कमरा ' + r.id.slice(-1), 'kamra ' + r.id.slice(-1)]));
   if (numeric.length && roomMatches.length) return reject('unsupported');
-  for (const d of devices.filter(d => targets.includes(d.id))) { consume(d.name); if (d.type === 'light') for (const word of ['light','lamp','लाइट','बत्ती']) consume(word + ' ' + d.id.slice(-1)); }
+  for (const d of devices.filter(d => targets.includes(d.id))) { consume(d.name); if (d.id === 'light-4') for (const word of ['fan','पंखा','pankha']) consume(word); else if (d.type === 'light') for (const word of ['light','lamp','लाइट','बत्ती']) consume(word + ' ' + d.id.slice(-1)); }
   for (const r of rooms.filter(r => targets.some(id => devices.find(d => d.id === id)?.room_id === r.id))) {
     consume(r.name); if (/^room-[12]$/.test(r.id)) for (const word of ['room','कमरा','रूम','kamra']) { consume(word + ' ' + r.id.slice(-1)); consume(word + r.id.slice(-1)); }
     for (const a of aliases.filter(a => a.confirmed && a.room_id === r.id)) consume(a.alias);

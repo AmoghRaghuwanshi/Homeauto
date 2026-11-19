@@ -2,7 +2,8 @@ const devices = [
   ['light-1', 'Light 1', 'light', 'Room 1', 'off', 'room-1', 'lights', ['switch']],
   ['light-2', 'Light 2', 'light', 'Room 1', 'off', 'room-1', 'lights', ['switch']],
   ['light-3', 'Light 3', 'light', 'Room 2', 'off', 'room-2', 'lights', ['switch']],
-  ['light-4', 'Light 4', 'light', 'Room 2', 'off', 'room-2', 'lights', ['switch']],
+  // The hardware retains the light/4 MQTT topic for its fourth relay, wired to the fan.
+  ['light-4', 'Fan', 'light', 'Room 2', 'off', 'room-2', 'lights', ['switch']],
   ['door-1', 'Front Door', 'door', 'Entrance', 'locked', 'entrance', 'door', ['lock', 'unlock']],
   ['sensor-gas', 'Gas Sensor', 'sensor', 'Kitchen', 'normal', 'kitchen', 'lights', ['gas_reading']],
   ['sensor-motion', 'Motion Sensor', 'sensor', 'Hallway', 'clear', 'hallway', 'lights', ['motion_event']],

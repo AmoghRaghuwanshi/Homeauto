@@ -96,6 +96,10 @@ async function createRepository({ filename = ':memory:', io = fs, sync = null, g
       for (const d of all('SELECT location FROM devices')) if (!locations.has(d.location)) locations.set(d.location, 'room-' + require('crypto').createHash('sha256').update(d.location).digest('hex').slice(0, 10));
       if (previousVersion < 5) for (const [name, id] of locations) run('INSERT OR IGNORE INTO rooms(id,name,name_key) VALUES(?,?,?)', [id, name || 'Unassigned', (name || 'Unassigned').normalize('NFC').toLowerCase()]);
       for (const d of devices) run('INSERT OR IGNORE INTO devices(id,name,type,location,status,room_id) VALUES(?,?,?,?,?,?)', [d.id, d.name, d.type, d.location, d.status, d.room_id]);
+      if (!one("SELECT key FROM home_settings WHERE key='vidyut_fan_name_migrated'")) {
+        run("UPDATE devices SET name='Fan',version=version+1 WHERE id='light-4' AND name='Light 4'");
+        run("INSERT INTO home_settings(key,value_json) VALUES('vidyut_fan_name_migrated','true')");
+      }
       for (const [name, id] of locations) run('UPDATE devices SET room_id=? WHERE location=? AND room_id IS NULL', [id, name]);
       run('INSERT OR IGNORE INTO home_settings(key,value_json) VALUES(?,?)', ['home_name', JSON.stringify('My home')]);
       run('INSERT OR IGNORE INTO home_settings(key,value_json) VALUES(?,?)', ['legacy_activity_max_id', JSON.stringify(one('SELECT COALESCE(MAX(id),0) AS n FROM activity_log').n)]);

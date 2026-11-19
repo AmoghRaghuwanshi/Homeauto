@@ -39,7 +39,7 @@ const ctx = {
     catch (e) { if (sessionVersion !== Api.sessionVersion || !state.session) return; ctx.feedback.set(id, errorText(e)); ctx.notify(errorText(e), true); }
     finally { if (ctx.commandOwners.get(id) === owner) { ctx.commandOwners.delete(id); ctx.pending.delete(id); render(); } }
   },
-  async bulkOff() { if (ctx.transitioning || !state.session || !state.snapshot) return; const realm = ctx.realmGeneration; const lights = state.snapshot.devices.filter(d => d.type === 'light'); const outcomes = []; for (let i = 0; i < lights.length; i += 2) { if (realm !== ctx.realmGeneration) return; outcomes.push(...await Promise.all(lights.slice(i, i + 2).map(d => ctx.command(d.id, 'off', realm)))); } if (realm !== ctx.realmGeneration) return; const unavailable = outcomes.filter(r => !r).length; if (unavailable) ctx.notify(`${unavailable} ${t('unavailable')}`, true); },
+  async bulkOff() { if (ctx.transitioning || !state.session || !state.snapshot) return; const realm = ctx.realmGeneration; const lights = state.snapshot.devices.filter(d => d.type === 'light' && (Api.demo || d.id !== 'light-4')); const outcomes = []; for (let i = 0; i < lights.length; i += 2) { if (realm !== ctx.realmGeneration) return; outcomes.push(...await Promise.all(lights.slice(i, i + 2).map(d => ctx.command(d.id, 'off', realm)))); } if (realm !== ctx.realmGeneration) return; const unavailable = outcomes.filter(r => !r).length; if (unavailable) ctx.notify(`${unavailable} ${t('unavailable')}`, true); },
   async preference(patch) {
     if (ctx.preferenceBusy || ctx.transitioning || !state.session) return;
     const operation = ctx.preferenceOperation = Symbol('preference-save');
@@ -167,7 +167,7 @@ async function switchDemo(enabled, destination = '/') {
     }
   }
 }
-ctx.startDemo=()=>ctx.notify(t('Connect your ESP32 to use HomeAuto.'), true);
+ctx.startDemo=()=>ctx.run(()=>switchDemo(true));
 ctx.exitDemo=destination=>ctx.run(()=>switchDemo(false,typeof destination==='string'?destination:'/'));
 ctx.demoScenario=kind=>ctx.run(async()=>{Api.demo?.scenario(kind);ctx.activityPage=null;await ctx.refresh();});
 ctx.resetDemo=()=>modal('Reset demo home',el('p',{},t('Reset only the simulated lights, favorites and scenarios in this browser tab.')),{confirmLabel:'Reset demo',onConfirm:async()=>{Api.demo?.reset();ctx.activityPage=null;await ctx.refresh();}});
@@ -375,7 +375,7 @@ function onUpdate() {
   updateCommandConversation();
   for (const a of state.snapshot?.alerts || []) if (a.state === 'active' && !knownAlerts.has(a.id)) {
     knownAlerts.add(a.id);
-    if (initialAlerts && ['gas', 'motion'].includes(a.kind)) { const message = t(Api.demo ? 'Demo sensor scenario updated' : a.kind === 'gas' ? 'Gas sensor reports a possible issue.' : 'Movement was detected.'); ctx.notify(message, a.kind === 'gas'); if (!Api.demo && 'Notification' in window && Notification.permission === 'granted' && state.snapshot.preferences.notification_categories.includes(a.kind)) try { new Notification('HomeAuto', { body: message, tag: a.id }); } catch {} }
+    if (initialAlerts && ['gas', 'motion', 'access_denied'].includes(a.kind)) { const message = t(Api.demo ? 'Demo sensor scenario updated' : a.kind === 'gas' ? 'Gas sensor reports a possible issue.' : a.kind === 'access_denied' ? 'Door access was denied.' : 'Movement was detected.'); ctx.notify(message, a.kind === 'gas' || a.kind === 'access_denied'); if (!Api.demo && 'Notification' in window && Notification.permission === 'granted' && state.snapshot.preferences.notification_categories.includes(a.kind)) try { new Notification('HomeAuto', { body: message, tag: a.id }); } catch {} }
   }
   initialAlerts = true;
   if (location.pathname === '/assistant' && assistantBuilt) { setVoiceState(ctx.voice.state); ctx.updateConversation?.(); return; }

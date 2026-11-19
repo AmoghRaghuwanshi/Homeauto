@@ -29,9 +29,9 @@ accessibility trials. See [implementation journal](HomeAuto_UIUX_Docs/IMPLEMENTA
 
 ## Start HomeAuto and connect hardware
 
-Install Node.js 22 and the dependencies with `npm ci --ignore-scripts` and `npm ci --ignore-scripts --prefix server`. While the ESP32 is being prepared, double-click **Start-HomeAuto.bat** for the local simulation at `http://127.0.0.1:3002/`. It uses an in-memory home with browser voice, simulated light/door controls and sensor scenarios. Modules provides a generated camera preview and camera failure/recovery scenarios. It never connects to MQTT, a real camera, the cloud gateway or the household database. Changes reset when this simulation server restarts. The camera test image is not a live CP Plus feed, and camera audio is not simulated.
+Install Node.js 22 (or the locally tested Node.js 26) and the dependencies with `npm ci --ignore-scripts` and `npm ci --ignore-scripts --prefix server`. While the ESP32 is being prepared, double-click **Start-HomeAuto.bat** for the local simulation at `http://127.0.0.1:3002/`. It uses an in-memory home with browser voice, simulated light/door controls and sensor scenarios. Modules provides a generated camera preview and camera failure/recovery scenarios. It never connects to MQTT, a real camera, the cloud gateway or the household database. Changes reset when this simulation server restarts. The camera test image is not a live CP Plus feed, and camera audio is not simulated.
 
-For actual devices, double-click **Start-HomeAuto-Hardware.bat**. It starts the authenticated hardware hub on port 3001 and opens `http://127.0.0.1:3001/modules`. Closing either launcher window leaves that server running. If Node.js 22 is outside PATH, set `HOMEAUTO_NODE` to its `node.exe` path. Startup logs are in `.local/launcher`; the two modes have separate logs and ports.
+For actual devices, double-click **Start-HomeAuto-Hardware.bat**. It starts the authenticated hardware hub on port 3001 and opens `http://127.0.0.1:3001/modules`. Closing either launcher window leaves that server running. If a supported Node.js version is outside PATH, set `HOMEAUTO_NODE` to its `node.exe` path. Startup logs are in `.local/launcher`; the two modes have separate logs and ports.
 
 On a new laptop, choose a local owner username and password in the one-time setup form. Then use **Modules** to configure the hub's MQTT broker connection, reconnect it, configure the camera's LAN address and inspect controller/sensor status. Configure controller Wi-Fi and its MQTT credentials in the ESP32 firmware. The broker must already be running and support the required authentication and TLS settings.
 
@@ -65,10 +65,13 @@ Assistant also keeps a live, multi-turn chat log in memory (up to 40 turns), cle
    before LAN use. `.env` files are not automatically loaded. Do not copy example
    passwords or enable the door while its safety checks are outstanding.
 
-The original firmware topics, IDs and pins are preserved. Legacy sketches use
-anonymous TCP MQTT and blocking reconnect loops; they **cannot** be deployed
-unchanged with the secure broker template. No firmware was flashed. The old
-bundled certificate/key is never read by the new runtime.
+The two-board VidyutRakshak firmware revision is mapped in
+[hardware integration notes](docs/verification/VIDYUTRAKSHAK_HARDWARE_INTEGRATION.md).
+Its new pin map, local RFID/keypad decisions, fourth-relay fan, and door
+configuration topics differ from this repository's older sketches. The hub
+now supports those application messages, but the linked firmware still uses
+anonymous TCP MQTT and hardcoded laptop addresses, so it cannot connect
+unchanged to the secure broker template. No firmware was flashed.
 
 ## Verify
 

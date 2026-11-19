@@ -1,5 +1,8 @@
 import { preferences } from './preferences.js';
 const hi = {
+  'Door access was denied.': 'दरवाज़े पर प्रवेश की अनुमति नहीं मिली।',
+  'Door access denied': 'दरवाज़े पर प्रवेश अस्वीकृत',
+  'Acknowledging records that you saw this alert.': 'पुष्टि करने से दर्ज होता है कि आपने यह चेतावनी देखी है।',
   'Simulation controls': 'सिमुलेशन नियंत्रण',
   'Simulation only': 'केवल सिमुलेशन',
   'Devices run in memory. No MQTT broker, ESP32 or household database is connected.': 'उपकरण केवल मेमोरी में चलते हैं। कोई MQTT ब्रोकर, ESP32 या असली घर का डेटाबेस जुड़ा नहीं है।',
@@ -83,6 +86,8 @@ const hi = {
   'Apply camera test': 'कैमरे की जाँच करें',
   'Refresh the page to check the camera again.': 'कैमरा फिर जाँचने के लिए पेज दोबारा लोड करें।',
   'Browser voices': 'ब्राउज़र की आवाज़ें',
+  'Automatic (natural female when available)': 'अपने-आप (उपलब्ध होने पर स्वाभाविक महिला आवाज़)',
+  'Automatic prefers a natural female voice when available. You can choose and test any listed voice.': 'उपलब्ध होने पर अपने-आप स्वाभाविक महिला आवाज़ चुनी जाती है। आप सूची से कोई भी आवाज़ चुनकर सुन सकते हैं।',
   'Choose a voice for each language. Available voices vary by browser and device.': 'हर भाषा के लिए आवाज़ चुनें। उपलब्ध आवाज़ें ब्राउज़र और डिवाइस पर निर्भर हैं।',
   'English voice': 'अंग्रेज़ी की आवाज़',
   'Hindi voice': 'हिंदी की आवाज़',
@@ -322,7 +327,7 @@ const errors = {
   CONNECTION_LOST: ["The hub didn't respond. Check the device's status before trying again.", 'हब ने जवाब नहीं दिया। दोबारा कोशिश करने से पहले उपकरण की स्थिति जाँचें।'],
   SYNTHESIS_FAILED: ["Couldn't create the spoken reply. The text is still available.", 'बोला गया जवाब तैयार नहीं हो सका। लिखित जवाब उपलब्ध है।'],
   BROWSER_RECOGNITION_UNAVAILABLE: ['Speech recognition is unavailable here. Use a supported browser on HTTPS or localhost, or type your request.', 'यहाँ आवाज़ पहचान उपलब्ध नहीं है। समर्थित ब्राउज़र में HTTPS या localhost खोलें, या अपना अनुरोध लिखें।'],
-  BROWSER_RECOGNITION_NETWORK: ['Your browser could not reach its speech service. Check internet access, or type your request.', 'ब्राउज़र की स्पीच सेवा से संपर्क नहीं हुआ। इंटरनेट जाँचें, या अपना अनुरोध लिखें।'],
+  BROWSER_RECOGNITION_NETWORK: ['Browser speech recognition is unavailable. Open HomeAuto in Chrome or Edge and try again, check internet access, or type your request.', 'ब्राउज़र में आवाज़ पहचान उपलब्ध नहीं है। HomeAuto को Chrome या Edge में खोलकर फिर कोशिश करें, इंटरनेट जाँचें, या अनुरोध लिखें।'],
   BROWSER_LANGUAGE_UNAVAILABLE: ['Your browser does not support the selected recognition language. Choose English or Hindi, or type your request.', 'चुनी गई भाषा में ब्राउज़र आवाज़ नहीं पहचान सकता। अंग्रेज़ी या हिंदी चुनें, या अपना अनुरोध लिखें।'],
   WAKE_LISTENING_STOPPED: ['Wake listening could not stay active. Select Start wake listening to try again, or use the microphone button.', 'संबोधन सुनना जारी नहीं रह सका। फिर कोशिश करने के लिए सुनना शुरू करें चुनें, या माइक्रोफ़ोन दबाएँ।'],
   BROWSER_RECOGNITION_FAILED: ['Browser recognition stopped. Select the microphone to try again, or type your request.', 'ब्राउज़र की आवाज़ पहचान रुक गई। फिर कोशिश करने के लिए माइक्रोफ़ोन दबाएँ, या अनुरोध लिखें।'],

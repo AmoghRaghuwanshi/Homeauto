@@ -7,7 +7,7 @@ const { byId } = require('./lib/registry');
 const { defaults } = require('./services/home');
 const { CameraService } = require('./camera/service');
 
-function createApp({ repo, home, sessions, assistant, speech, camera = new CameraService(), modules = null, config = {}, cloudStatus = () => ({ enabled: false, state: 'disabled' }) }) {
+function createApp({ repo, home, sessions, assistant, speech, camera = new CameraService(), modules = null, doorConfig = null, config = {}, cloudStatus = () => ({ enabled: false, state: 'disabled' }) }) {
   if (!repo || !home || !sessions || !assistant || !speech) throw new Error('Explicit application dependencies required');
   const app = express(); app.disable('x-powered-by'); app.set('query parser', 'simple');
   const allowedHosts = new Set(config.ALLOWED_HOSTS || ['localhost', '127.0.0.1', '[::1]']);
@@ -163,17 +163,35 @@ function createApp({ repo, home, sessions, assistant, speech, camera = new Camer
   app.get('/api/settings/home', (req, res) => res.json(home.homeSettings()));
   app.put('/api/settings/home', (req, res) => { authorize(req.actor, 'owner'); fields(req.body, ['home_name', 'version'], ['home_name', 'version']); version(req.body.version, home.homeSettings().version); repo.write("UPDATE home_settings SET value_json=?,version=version+1 WHERE key='home_name'", [JSON.stringify(text(req.body.home_name, 60))]); home.emitChange(); res.json(home.homeSettings()); });
   app.get('/api/logs/rfid-cards', (req, res) => { authorize(req.actor, 'owner'); res.json(repo.all('SELECT * FROM rfid_cards ORDER BY created_at DESC')); });
+  function assertCardCapacity(changedUid = null, authorized = false) {
+    if (!authorized) return;
+    const ids = repo.all('SELECT uid FROM rfid_cards WHERE is_authorized=1').map(row => row.uid).filter(id => id !== changedUid);
+    if (authorized) ids.push(changedUid);
+    if (Buffer.byteLength(ids.join(',')) > 200) fail('CARD_LIST_TOO_LARGE', 422);
+  }
+  app.get('/api/door/pin', (req, res) => { authorize(req.actor, 'owner'); res.json({ configured: !!doorConfig?.configured() }); });
+  app.put('/api/door/pin', asyncRoute(async (req, res) => {
+    authorize(req.actor, 'sensitive', home.now());
+    if (!doorConfig) fail('DOOR_CONFIG_UNAVAILABLE', 503);
+    fields(req.body, ['pin'], ['pin']);
+    await doorConfig.setPin(req.body.pin);
+    home.publishDoorPin();
+    repo.log('door-1', 'door_pin_updated', {}, req.actor.user_id);
+    res.json({ configured: true });
+  }));
   app.post('/api/logs/rfid-cards', (req, res) => {
     authorize(req.actor, 'sensitive', home.now()); fields(req.body, ['uid', 'owner_name', 'is_authorized'], ['uid', 'owner_name', 'is_authorized']); const cardUid = uid(req.body.uid); const name = text(req.body.owner_name);
     if (typeof req.body.is_authorized !== 'boolean') fail('VALIDATION_ERROR'); if (repo.one('SELECT uid FROM rfid_cards WHERE uid=?', [cardUid])) fail('CARD_EXISTS', 409);
-    repo.transaction(tx => { tx.run('INSERT INTO rfid_cards(uid,owner_name,is_authorized) VALUES(?,?,?)', [cardUid, name, +req.body.is_authorized]); repo.log('door-1', 'rfid_card_added', { uid: cardUid, owner_name: name }, req.actor.user_id, null, tx); }); home.emitChange(); res.status(201).json(repo.one('SELECT * FROM rfid_cards WHERE uid=?', [cardUid]));
+    assertCardCapacity(cardUid, req.body.is_authorized);
+    repo.transaction(tx => { tx.run('INSERT INTO rfid_cards(uid,owner_name,is_authorized) VALUES(?,?,?)', [cardUid, name, +req.body.is_authorized]); repo.log('door-1', 'rfid_card_added', { uid: cardUid, owner_name: name }, req.actor.user_id, null, tx); }); home.publishDoorCards(); home.emitChange(); res.status(201).json(repo.one('SELECT * FROM rfid_cards WHERE uid=?', [cardUid]));
   });
   app.put('/api/logs/rfid-cards/:uid', (req, res) => {
     authorize(req.actor, 'sensitive', home.now()); fields(req.body, ['owner_name', 'is_authorized', 'version'], ['version']); const cardUid = uid(req.params.uid); const card = repo.one('SELECT * FROM rfid_cards WHERE uid=?', [cardUid]); if (!card) fail('NOT_FOUND', 404); version(req.body.version, card.version);
     const name = req.body.owner_name === undefined ? card.owner_name : text(req.body.owner_name); if (req.body.is_authorized !== undefined && typeof req.body.is_authorized !== 'boolean') fail('VALIDATION_ERROR');
-    repo.transaction(tx => { tx.run('UPDATE rfid_cards SET owner_name=?,is_authorized=?,version=version+1 WHERE uid=?', [name, req.body.is_authorized === undefined ? card.is_authorized : +req.body.is_authorized, cardUid]); repo.log('door-1', 'rfid_card_updated', { uid: cardUid, authorized: req.body.is_authorized ?? !!card.is_authorized }, req.actor.user_id, null, tx); }); home.emitChange(); res.json(repo.one('SELECT * FROM rfid_cards WHERE uid=?', [cardUid]));
+    assertCardCapacity(cardUid, req.body.is_authorized === undefined ? !!card.is_authorized : req.body.is_authorized);
+    repo.transaction(tx => { tx.run('UPDATE rfid_cards SET owner_name=?,is_authorized=?,version=version+1 WHERE uid=?', [name, req.body.is_authorized === undefined ? card.is_authorized : +req.body.is_authorized, cardUid]); repo.log('door-1', 'rfid_card_updated', { uid: cardUid, authorized: req.body.is_authorized ?? !!card.is_authorized }, req.actor.user_id, null, tx); }); home.publishDoorCards(); home.emitChange(); res.json(repo.one('SELECT * FROM rfid_cards WHERE uid=?', [cardUid]));
   });
-  app.delete('/api/logs/rfid-cards/:uid', (req, res) => { authorize(req.actor, 'sensitive', home.now()); const cardUid = uid(req.params.uid); if (!repo.one('SELECT uid FROM rfid_cards WHERE uid=?', [cardUid])) fail('NOT_FOUND', 404); repo.transaction(tx => { tx.run('DELETE FROM rfid_cards WHERE uid=?', [cardUid]); repo.log('door-1', 'rfid_card_removed', { uid: cardUid }, req.actor.user_id, null, tx); }); home.emitChange(); res.json({ success: true }); });
+  app.delete('/api/logs/rfid-cards/:uid', (req, res) => { authorize(req.actor, 'sensitive', home.now()); const cardUid = uid(req.params.uid); if (!repo.one('SELECT uid FROM rfid_cards WHERE uid=?', [cardUid])) fail('NOT_FOUND', 404); repo.transaction(tx => { tx.run('DELETE FROM rfid_cards WHERE uid=?', [cardUid]); repo.log('door-1', 'rfid_card_removed', { uid: cardUid }, req.actor.user_id, null, tx); }); home.publishDoorCards(); home.emitChange(); res.json({ success: true }); });
   function activity(req) {
     const q = req.query; const limit = q.limit === undefined ? 30 : Number(q.limit); if (!Number.isInteger(limit) || limit < 1 || limit > 100) fail('INVALID_LIMIT');
     const where = [], args = []; const category = q.category || 'all'; if (!['all', 'doors', 'lights', 'sensors', 'system'].includes(category)) fail('INVALID_CATEGORY');
