@@ -36,3 +36,4 @@ __pycache__/
 .ssh/
 # Private, one-time gateway enrollment downloads.
 homeauto-gateway*.json
+firmware/**/homeauto_config.h

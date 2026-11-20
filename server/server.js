@@ -3,7 +3,9 @@ if (require.main === module) {
   startRuntime().then(runtime => {
     const secure = !!runtime.server.setSecureContext;
     console.log(`HomeAuto: ${secure ? 'https' : 'http'}://127.0.0.1:${runtime.server.address().port}`);
-    console.log('Local owner setup: stop the hub, then npm run setup -- add-user YOUR_NAME owner');
+    console.log(process.env.HOMEAUTO_GATEWAY_ENABLED === '1'
+      ? 'Paired cloud home: sign in with your domain account credentials.'
+      : 'Local owner setup: stop the hub, then npm run setup -- add-user YOUR_NAME owner');
     console.log('MQTT and door actuation require explicit operator configuration.');
     let stopping = false;
     const stop = async () => { if (stopping) return; stopping = true; await runtime.stop(); };

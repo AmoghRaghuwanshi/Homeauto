@@ -1,0 +1,12 @@
+#pragma once
+// Generate the private homeauto_config.h with scripts/prepare-lights.ps1.
+// Laptop address on the current mobile hotspot; recheck after reconnecting.
+const char* MQTT_SERVER = "172.20.10.5";
+const int MQTT_PORT = 8883;
+const char* WIFI_SSID = "YOUR_HOTSPOT_NAME";
+const char* WIFI_PASSWORD = "";
+const char* MQTT_CLIENT = "esp32-lights";
+const char* MQTT_USERNAME = "esp32-lights";
+const char* MQTT_PASSWORD = "";
+const char* MQTT_CA_CERT = "";
+#define HOMEAUTO_MOTION_ENABLED 0

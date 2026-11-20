@@ -1,5 +1,7 @@
 # VidyutRakshak two-board integration
 
+**2026-11-20 update:** The light sketch in `firmware` now adapts upstream with TLS, private credentials and motion heartbeats. The user deferred door hardware, so the door sketch and application behavior remain unchanged. Follow [current commissioning instructions](HARDWARE_COMMISSIONING.md). Physical verification is still pending.
+
 Reviewed against [`Mishrajishri/home-security-simple` at `480b51b1d73cbc86ae65b044bc64562ca23386c4`](https://github.com/Mishrajishri/home-security-simple/commit/480b51b1d73cbc86ae65b044bc64562ca23386c4), 2026-11-19. The update since the prior review at `a7863e9` changes only the light-controller broker IP from `10.166.88.31` to `10.90.241.31`. The board topics, payloads, pins, and behavior did not change. The upstream server and dashboard are a separate legacy application; importing them would replace this project's authentication, command tracking, cloud gateway and UI.
 
 ## Physical map and messages
