@@ -50,7 +50,7 @@ const unsigned long SENSOR_READ_INTERVAL  = 2000;  // 2s sensor check interval
 const unsigned long MOTION_HOLD_TIME      = 5000;  // Hold motion state for 5s
 const unsigned long GAS_FORCE_PUBLISH_INT = 4000; // Keep reports inside the hub's 10s freshness limit
 const unsigned long MQTT_RETRY_INTERVAL   = 5000;  // Reconnect retry every 5s
-const unsigned long WIFI_RETRY_INTERVAL   = 10000; // Wi-Fi reconnect retry every 10s
+const unsigned long WIFI_RETRY_INTERVAL   = 30000; // Allow hotspot association and DHCP to finish
 
 // ─── Runtime State ─────────────────────────────────────────
 WiFiClientSecure espClient;
@@ -63,6 +63,8 @@ unsigned long lastMotionTime     = 0;
 unsigned long lastGasPublish     = 0;
 unsigned long lastMqttRetry      = 0;
 unsigned long lastWifiRetry      = 0;
+unsigned long lastClockNotice    = 0;
+bool wifiWasConnected            = false;
 
 int  lastPublishedPpm = -1;
 bool lastAlertState   = false;
@@ -213,14 +215,30 @@ void checkMotionSensor() {
 
 // ─── Non-blocking Wi-Fi Reconnect ──────────────────────────
 void checkWiFiConnection() {
-  if (WiFi.status() == WL_CONNECTED) return;
-
   unsigned long now = millis();
+  if (WiFi.status() == WL_CONNECTED) {
+    if (!wifiWasConnected) {
+      wifiWasConnected = true;
+      Serial.println("[WiFi] Connected! IP: " + WiFi.localIP().toString());
+      // Start/restart time synchronization only after DHCP has supplied DNS.
+      configTime(0, 0, "pool.ntp.org", "time.cloudflare.com", "time.nist.gov");
+      lastMqttRetry = now - MQTT_RETRY_INTERVAL;
+    }
+    lastWifiRetry = now;
+    return;
+  }
+  if (wifiWasConnected) {
+    wifiWasConnected = false;
+    espClient.stop(); // Retire the old MQTT socket after a lost Wi-Fi link.
+    digitalWrite(STATUS_LED_PIN, LOW);
+    Serial.println("[WiFi] Connection lost. Automatic reconnect is active.");
+  }
+  // The Wi-Fi driver retries lost connections itself. This slower fallback also
+  // recovers when the hotspot was absent at boot, without erasing credentials.
   if (now - lastWifiRetry >= WIFI_RETRY_INTERVAL) {
     lastWifiRetry = now;
-    Serial.printf("[WiFi] Reconnecting to %s...\n", WIFI_SSID);
-    WiFi.disconnect();
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.printf("[WiFi] Retrying saved hotspot (status=%d)...\n", WiFi.status());
+    if (!WiFi.reconnect()) WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   }
 }
 
@@ -228,7 +246,13 @@ void checkWiFiConnection() {
 void connectMQTT() {
   if (WiFi.status() != WL_CONNECTED) return;
   if (mqtt.connected()) return;
-  if (time(nullptr) < 1700000000) return;
+  if (time(nullptr) < 1700000000) {
+    if (millis() - lastClockNotice >= 10000) {
+      lastClockNotice = millis();
+      Serial.println("[TLS] Wi-Fi is connected; waiting for network time to verify the broker certificate.");
+    }
+    return;
+  }
 
   unsigned long now = millis();
   if (now - lastMqttRetry < MQTT_RETRY_INTERVAL) return;
@@ -259,6 +283,8 @@ void connectMQTT() {
   } else {
     Serial.printf("[MQTT] Connection failed (rc=%d). Will retry in %lu ms\n",
                   mqtt.state(), MQTT_RETRY_INTERVAL);
+    char tlsError[160];
+    if (espClient.lastError(tlsError, sizeof(tlsError))) Serial.printf("[TLS] %s\n", tlsError);
     digitalWrite(STATUS_LED_PIN, LOW);
   }
 }
@@ -298,31 +324,20 @@ void setup() {
   pinMode(MOTION_SENSOR_PIN, INPUT);
 
   // Connect to Wi-Fi
-  Serial.print("[WiFi] Initial connection to ");
-  Serial.println(WIFI_SSID);
+  Serial.println("[WiFi] Connecting to the saved hotspot. Retries continue if it is not ready yet.");
+  WiFi.persistent(false); // Credentials are already provisioned in the private header.
+  WiFi.setHostname("homeauto-lights");
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  // Allow up to 10 seconds for initial connection
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n[WiFi] Connected! IP: " + WiFi.localIP().toString());
-  } else {
-    Serial.println("\n[WiFi] Initial connect timed out. Non-blocking retry active.");
-  }
+  lastWifiRetry = millis();
 
   // Configure MQTT
   espClient.setCACert(MQTT_CA_CERT);
   espClient.setHandshakeTimeout(2);
   mqtt.setSocketTimeout(1);
   mqtt.setKeepAlive(15);
-  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
   mqtt.setServer(MQTT_SERVER, MQTT_PORT);
   mqtt.setCallback(mqttCallback);
   mqtt.setBufferSize(512);

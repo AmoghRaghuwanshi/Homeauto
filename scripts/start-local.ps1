@@ -66,6 +66,33 @@ try {
     if (-not $ownsMutex) { Write-Host 'HomeAuto is already starting. Please wait for its browser pages.'; exit 0 }
     New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
     Write-Host "Starting HomeAuto $Mode..."
+    if (-not $simulation) {
+        $savedGatewayPath = Join-Path $projectRoot '.local\gateway-path.txt'
+        if (-not $GatewayFile -and (Test-Path -LiteralPath $savedGatewayPath)) { $GatewayFile = (Get-Content -LiteralPath $savedGatewayPath -Raw).Trim() }
+        if (-not $HardwareConfig -and (Test-Path -LiteralPath (Join-Path $projectRoot '.local\hardware\hub.json'))) { $HardwareConfig = Join-Path $projectRoot '.local\hardware\hub.json' }
+        if ($HardwareConfig) {
+            $settings = Get-Content -LiteralPath $HardwareConfig -Raw | ConvertFrom-Json
+            foreach ($property in $settings.PSObject.Properties) {
+                if ($property.Name -notmatch '^HOMEAUTO_(MQTT_(ENABLED|BROKER|USERNAME|PASSWORD|CA)|DOOR_ENABLED|REMOTE_(DOOR|LIGHTS)_ENABLED|SECURE_GATEWAY_APPROVED)$') { throw "Unsupported hardware setting: $($property.Name)" }
+                [Environment]::SetEnvironmentVariable($property.Name, [string]$property.Value, 'Process')
+            }
+            $brokerConfig = Join-Path $projectRoot '.local\hardware\mosquitto.conf'
+            $brokerExe = Join-Path $projectRoot '.local\tools\mosquitto\mosquitto.exe'
+            if (-not (Test-Path -LiteralPath $brokerExe)) { $brokerExe = 'C:\Program Files\mosquitto\mosquitto.exe' }
+            if ($settings.HOMEAUTO_MQTT_BROKER -eq 'mqtts://127.0.0.1:8883' -and (Test-Path -LiteralPath $brokerConfig) -and (Test-Path -LiteralPath $brokerExe)) {
+                $probe = New-Object Net.Sockets.TcpClient
+                $brokerRunning = $false
+                try { $brokerRunning = $probe.ConnectAsync('127.0.0.1',8883).Wait(500) -and $probe.Connected } catch {} finally { $probe.Dispose() }
+                if (-not $brokerRunning) {
+                    Start-Process -FilePath $brokerExe -ArgumentList @('-c',('"'+$brokerConfig+'"')) -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDirectory 'broker.log') -RedirectStandardError (Join-Path $logDirectory 'broker-error.log') | Out-Null
+                }
+            }
+        }
+        if ($GatewayFile) {
+            $GatewayFile = (Resolve-Path -LiteralPath $GatewayFile).Path
+            Set-Content -LiteralPath $savedGatewayPath -Value $GatewayFile
+        }
+    }
     if (-not (Test-ServiceReady 'home')) {
         Assert-PortAvailable $servicePort
         $node = Get-SupportedNode
@@ -77,33 +104,6 @@ try {
         $env:HOMEAUTO_PORT = [string]$servicePort
         $env:HOMEAUTO_SIMULATION_PORT = [string]$servicePort
         $env:HOMEAUTO_CAMERA_MODE = 'disabled'
-        if (-not $simulation) {
-            $savedGatewayPath = Join-Path $projectRoot '.local\gateway-path.txt'
-            if (-not $GatewayFile -and (Test-Path -LiteralPath $savedGatewayPath)) { $GatewayFile = (Get-Content -LiteralPath $savedGatewayPath -Raw).Trim() }
-            if (-not $HardwareConfig -and (Test-Path -LiteralPath (Join-Path $projectRoot '.local\hardware\hub.json'))) { $HardwareConfig = Join-Path $projectRoot '.local\hardware\hub.json' }
-            if ($HardwareConfig) {
-                $settings = Get-Content -LiteralPath $HardwareConfig -Raw | ConvertFrom-Json
-                foreach ($property in $settings.PSObject.Properties) {
-                    if ($property.Name -notmatch '^HOMEAUTO_(MQTT_(ENABLED|BROKER|USERNAME|PASSWORD|CA)|DOOR_ENABLED|REMOTE_(DOOR|LIGHTS)_ENABLED|SECURE_GATEWAY_APPROVED)$') { throw "Unsupported hardware setting: $($property.Name)" }
-                    [Environment]::SetEnvironmentVariable($property.Name, [string]$property.Value, 'Process')
-                }
-                $brokerConfig = Join-Path $projectRoot '.local\hardware\mosquitto.conf'
-                $brokerExe = Join-Path $projectRoot '.local\tools\mosquitto\mosquitto.exe'
-                if (-not (Test-Path -LiteralPath $brokerExe)) { $brokerExe = 'C:\Program Files\mosquitto\mosquitto.exe' }
-                if ($settings.HOMEAUTO_MQTT_BROKER -eq 'mqtts://127.0.0.1:8883' -and (Test-Path -LiteralPath $brokerConfig) -and (Test-Path -LiteralPath $brokerExe)) {
-                    $probe = New-Object Net.Sockets.TcpClient
-                    $brokerRunning = $false
-                    try { $brokerRunning = $probe.ConnectAsync('127.0.0.1',8883).Wait(500) -and $probe.Connected } catch {} finally { $probe.Dispose() }
-                    if (-not $brokerRunning) {
-                        Start-Process -FilePath $brokerExe -ArgumentList @('-c',('"'+$brokerConfig+'"')) -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDirectory 'broker.log') -RedirectStandardError (Join-Path $logDirectory 'broker-error.log') | Out-Null
-                    }
-                }
-            }
-            if ($GatewayFile) {
-                $GatewayFile = (Resolve-Path -LiteralPath $GatewayFile).Path
-                Set-Content -LiteralPath $savedGatewayPath -Value $GatewayFile
-            }
-        }
         $entryPoint = if ($simulation) { 'scripts/simulation.js' } else { 'server.js' }
         $launchArguments = @($entryPoint)
         if (-not $simulation -and $GatewayFile) { $launchArguments = @('scripts/with-gateway.js', ('"' + $GatewayFile + '"')) }
