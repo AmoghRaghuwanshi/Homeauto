@@ -22,6 +22,7 @@ async function main() {
         : (report.external.push(route.request().url()), route.abort()),
     );
     await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia=async()=>({getTracks:()=>[{stop(){}}]});
       window.__spoken = [];
       window.SpeechRecognition = class {
         start() {

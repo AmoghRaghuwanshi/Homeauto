@@ -50,10 +50,21 @@ test('browser capture sends only final text over the ticketed socket and waits f
 test('cloud microphone sends final transcripts through HTTP without creating a WebSocket', async t => {
   const f=clientFixture();t.after(()=>f.capture.cancel());
   f.scope.queueMicrotask=queueMicrotask;f.scope.AbortController=AbortController;
+  f.scope.Api.mode='cloud';
   const requests=[];f.scope.Api.request=async(path,options)=>{requests.push({path,options});return path.endsWith('voice-tickets')?{transport:'http',provider:'browser'}:{intent_id:crypto.randomUUID(),intent:{kind:'query',device_ids:['light-1']}};};
   await f.capture.start('hi');assert.equal(f.capture.state,'listening');assert.equal(f.sockets.length,0);
-  const r=f.recognizers[0];r.result('लाइट एक की स्थिति',true);assert.equal(requests.length,1);r.onend();await flush();
-  assert.equal(requests[1].path,'/api/assistant/interpret');assert.equal(requests[1].options.body.text,'लाइट एक की स्थिति');assert.equal(f.intents.length,1);assert.equal(f.capture.state,'ready');
+  const r=f.recognizers[0];r.result('लाइट एक की स्थिति',true);assert.equal(requests.length,0);r.onend();await flush();
+  assert.equal(requests[0].path,'/api/assistant/interpret');assert.equal(requests[0].options.body.text,'लाइट एक की स्थिति');assert.equal(f.intents.length,1);assert.equal(f.capture.state,'ready');
+});
+
+test('microphone permission is requested before transport and canceled permission cannot start recognition', async t=>{
+  const f=clientFixture();t.after(()=>f.capture.cancel());const order=[];
+  f.scope.navigator={mediaDevices:{getUserMedia:async()=>{order.push('permission');return {getTracks:()=>[{stop:()=>order.push('released')}]};}}};
+  f.scope.Api.request=async()=>{order.push('transport');return {ticket:'fixture'};};
+  await f.capture.start();assert.deepEqual(order,['permission','released','transport']);
+  f.capture.cancel();let allow;f.scope.navigator.mediaDevices.getUserMedia=()=>new Promise(resolve=>allow=resolve);
+  const pending=f.capture.start();f.capture.cancel();allow({getTracks:()=>[{stop:()=>order.push('canceled-stream-released')}]});await pending;
+  assert.equal(order.at(-1),'canceled-stream-released');assert.equal(f.recognizers.length,1);
 });
 test('interim-only speech never becomes a command; microphone and network failures have specific errors', async t => {
   for (const [input, expected] of [['interim', 'MICROPHONE_NO_SPEECH'], ['not-allowed', 'MICROPHONE_DENIED'], ['network', 'BROWSER_RECOGNITION_NETWORK']]) {

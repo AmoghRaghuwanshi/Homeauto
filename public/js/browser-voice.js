@@ -41,7 +41,18 @@ export class BrowserVoiceCapture {
     try {
       if (!browserVoiceAvailable()) throw { code: 'BROWSER_RECOGNITION_UNAVAILABLE' };
       this.setState('permission');
-      const { ticket, transport } = await Api.request('/api/assistant/voice-tickets', { method: 'POST', body: {} });
+      // Request permission while the microphone click still owns the browser's
+      // user gesture, before any cloud request or socket handshake can delay it.
+      if (globalThis.navigator?.mediaDevices?.getUserMedia) {
+        let stream;
+        try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+        catch (error) { throw { code: error.name === 'NotAllowedError' || error.name === 'SecurityError' ? 'MICROPHONE_DENIED' : 'MICROPHONE_UNAVAILABLE' }; }
+        finally { stream?.getTracks().forEach(track => track.stop()); }
+        if (!current()) return;
+      }
+      const { ticket, transport } = Api.mode === 'cloud'
+        ? { transport: 'http' }
+        : await Api.request('/api/assistant/voice-tickets', { method: 'POST', body: {} });
       if (!current()) return;
       this.utterance = crypto.randomUUID(); this.finalText = '';
       const ws = this.ws = transport === 'http' ? new HttpVoiceTransport() : new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/voice`);
