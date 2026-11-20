@@ -18,6 +18,7 @@ async function main() {
     page.on('websocket', ws => { if (ws.url().endsWith('/voice')) ws.on('framesent', frame => { try { report.frames.push(JSON.parse(frame.payload)); } catch { report.frames.push({ binary: true }); } }); });
     await page.route('**/*', route => new URL(route.request().url()).origin === fixture.url ? route.continue() : (report.external.push(route.request().url()), route.abort()));
     await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia=async()=>({getTracks:()=>[{stop(){}}]});
       window.qa = { starts: 0, overlap: 0, played: [], hold: false, active: null, currentSpeech: null, voices: [
         { name: 'Local English', voiceURI: 'local-en', lang: 'en-IN', localService: true, default: true },
         { name: 'Other English', voiceURI: 'other-en', lang: 'en-GB', localService: false },

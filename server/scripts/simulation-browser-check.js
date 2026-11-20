@@ -15,7 +15,7 @@ async function main() {
     const page = await browser.newPage({viewport:{width:390,height:844}});
     page.on('pageerror',error=>report.errors.push(error.message));
     await page.route('**/*',route=>new URL(route.request().url()).origin===fixture.url ? route.continue() : (report.external.push(route.request().url()),route.abort()));
-    await page.addInitScript(()=>{window.SpeechRecognition=class {start(){} abort(){}};});
+    await page.addInitScript(()=>{navigator.mediaDevices.getUserMedia=async()=>({getTracks:()=>[{stop(){}}]});window.SpeechRecognition=class {start(){} abort(){}};});
     await page.goto(fixture.url+'/assistant');
     await page.waitForFunction(()=>document.documentElement.dataset.connected==='true');
     assert.equal(await page.locator('#assistant-mic').isEnabled(),true);
