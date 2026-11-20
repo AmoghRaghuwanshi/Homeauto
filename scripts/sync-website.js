@@ -5,7 +5,7 @@ const site = path.join(root, 'website');
 const files = [
   'package.json', 'package-lock.json', '.vercelignore',
   'scripts/verify-cloud-build.js',
-  'server/auth/sessions.js', 'server/services/home.js', 'server/voice/intent.js',
+  'server/voice/dialogue.js', 'server/auth/sessions.js', 'server/services/home.js', 'server/voice/intent.js',
   'server/cloud/config.js', 'server/cloud/postgres.js', 'server/cloud/protocol.js',
 ];
 const directories = ['public', 'server/online', 'server/lib'];

@@ -63,7 +63,7 @@ async function expire(client, a) {
 }
 function createOnlineStore(
   pool,
-  { allowCommands = false, allowDoor = false, simulation = false } = {},
+  { allowCommands = false, allowDoor = false, simulation = false, hubManagement = false } = {},
 ) {
   const tx = (a, work) => scoped(pool, a, work);
   function confirmation(a, key, expires) {
@@ -265,23 +265,28 @@ function createOnlineStore(
       preferences: { ...defaults, ...pref?.value, version: pref?.version || 0 },
       home,
       speech: {
-        stt_ready: false,
-        tts_ready: false,
-        input_languages: [],
-        reply_languages: [],
+        provider: "browser",
+        stt_ready: true,
+        tts_ready: true,
+        stt_state: "browser", tts_state: "browser",
+        input_languages: ["en", "hi"],
+        reply_languages: ["en", "hi"],
         voices: [],
       },
       system: {
         simulation,
         mode: "cloud",
+        hardware_required: true,
+        hardware_ready: gatewayCurrent && !!gateway?.mqtt_connected && Object.values(espBoards).some(b=>b.online),
         door_enabled: allowDoor,
         persistence_healthy: true,
         fault: null,
         remote_lights_enabled: allowCommands,
       },
       capabilities: {
-        metadata_edit: false,
-        rfid: false,
+        metadata_edit: hubManagement,
+        rfid: hubManagement,
+        hub_management: hubManagement,
         local_voice: false,
         remote_lights: allowCommands,
         remote_door: allowDoor,
@@ -867,7 +872,7 @@ function createOnlineStore(
       return tx(a, async (c) => {
         await expire(c, a);
         const args = [a.household_id],
-          where = ["household_id=$1"];
+          where = ["household_id=$1", "type NOT IN('_hub_rpc_request','_hub_rpc_claim','_hub_rpc_admit','_hub_rpc_result')"];
         if (cursor !== "0") {
           args.push(cursor);
           where.push("sequence<$" + args.length + "::bigint");
@@ -954,7 +959,7 @@ function createOnlineStore(
         );
         const rows = (
           await c.query(
-            "SELECT sequence,event_id,type,device_id,payload,created_at FROM homeauto_online.events WHERE household_id=$1 AND sequence>$2::bigint ORDER BY sequence LIMIT 100",
+            "SELECT sequence,event_id,type,device_id,payload,created_at FROM homeauto_online.events WHERE household_id=$1 AND type NOT IN('_hub_rpc_request','_hub_rpc_claim','_hub_rpc_admit','_hub_rpc_result') AND sequence>$2::bigint ORDER BY sequence LIMIT 100",
             [a.household_id, cursor],
           )
         ).rows;

@@ -80,6 +80,17 @@ class Sessions {
     this.repo.write('INSERT INTO sessions(token_hash,user_id,created_at,expires_at,last_active_at,reauth_at) VALUES(?,?,?,?,?,?)', [hash(token), userId, now, now + 28800000, now, 0]);
     return { token, ...this.get(token) };
   }
+  async importGatewayActor(identity) {
+    if (!this.gateway || identity?.role !== 'owner' || !/^[a-f0-9-]{36}$/.test(identity.user_id || '') || typeof identity.username !== 'string' || typeof identity.display_name !== 'string') fail('FORBIDDEN',403);
+    const id='cloud:'+identity.user_id;
+    if(!this.repo.one('SELECT id FROM users WHERE id=?',[id])){
+      const encoded=await passwordHash(crypto.randomBytes(32).toString('hex'));
+      this.repo.write('INSERT INTO users(id,username,display_name,password_hash,role,can_unlock,created_at) VALUES(?,?,?,?,?,?,?)',[id,'cloud:'+identity.username,identity.display_name,encoded,'owner',0,new Date(this.now()).toISOString()]);
+    } else this.repo.write('UPDATE users SET role=?,display_name=?,disabled=0 WHERE id=?',['owner',identity.display_name,id]);
+    const now=this.now(),token=crypto.randomBytes(32).toString('hex'),reauth=Date.parse(identity.reauth_at||'');
+    this.repo.write('INSERT INTO sessions(token_hash,user_id,created_at,expires_at,last_active_at,reauth_at) VALUES(?,?,?,?,?,?)',[hash(token),id,now,now+30000,now,Number.isFinite(reauth)?reauth:0]);
+    return {token,...this.get(token)};
+  }
   get(token) {
     if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
     const row = this.repo.one('SELECT s.*,u.username,u.display_name,u.role,u.can_unlock,u.disabled FROM sessions s JOIN users u ON u.id=s.user_id WHERE token_hash=?', [hash(token)]);

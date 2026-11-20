@@ -38,7 +38,7 @@ async function simulationModules(ctx) {
         const current = await Api.request('/api/camera/status');
         if (!dialog.isConnected || !dialog.open) return;
         if (current.state === 'live') {
-          const image = el('img', { src: '/api/camera/frame?generation=' + encodeURIComponent(current.generation), alt: t('Generated camera test image') });
+          const image = el('img', { src: Api.demo ? current.frame_url : '/api/camera/frame?generation=' + encodeURIComponent(current.generation), alt: t('Generated camera test image') });
           image.addEventListener('error', () => image.replaceWith(el('p', { class: 'form-error', role: 'alert' }, t('Test camera unavailable'))), { once: true });
           frame.replaceChildren(image);
         } else frame.replaceChildren(el('p', {}, t('Test camera unavailable')));
@@ -55,8 +55,6 @@ async function simulationModules(ctx) {
 
 export async function modulesPage(ctx) {
   const view = el('div', { class: 'settings-wrap stack' }, pageHeader('Modules', 'Connect and configure your home hardware'));
-  if (Api.mode === 'cloud') return el('div', { class: 'settings-wrap stack' }, pageHeader('Modules'),
-    el('p', {}, t('Configure modules on the local home hub.')), link('Home gateway', '/settings/gateway', 'button button-primary'));
   if (state.snapshot.system.simulation && state.session.user.role === 'owner') return simulationModules(ctx);
   if (state.session.user.role !== 'owner') {
     view.append(el('p', {}, t('Ask the home owner to configure modules.')));

@@ -42,7 +42,7 @@ function dialogueText(kind, home, actor, language) {
   const hindi = language === 'hi';
   switch (kind) {
     case 'greeting': return hindi ? 'नमस्ते! मैं श्रीमान हूँ। घर के किस काम में मदद चाहिए?' : "Hello! I'm Shrimaan. What would you like help with at home?";
-    case 'identity': return hindi ? 'मैं श्रीमान हूँ, आपके घर का ऑफलाइन सहायक। ' + capabilityText(home, actor, language) : "I'm Shrimaan, your offline home assistant. " + capabilityText(home, actor, language);
+    case 'identity': return hindi ? 'मैं श्रीमान हूँ, आपके घर का सहायक। ' + capabilityText(home, actor, language) : "I'm Shrimaan, your home assistant. " + capabilityText(home, actor, language);
     case 'wellbeing': return hindi ? 'मैं घर के काम में आपकी मदद के लिए तैयार हूँ। क्या करना है?' : "I'm ready to help with your home. What would you like to do?";
     case 'thanks': return hindi ? 'घर के किसी और काम में मदद चाहिए तो बताइए।' : "You're welcome. Let me know if you need anything else for your home.";
     case 'goodbye': return hindi ? 'ठीक है। फिर मदद चाहिए हो तो अनुरोध लिखें या माइक्रोफ़ोन दबाएँ।' : 'Okay. Type a request or tap the microphone whenever you need help again.';

@@ -11,7 +11,7 @@ export function createDemoHome(session, storage = null, now = () => Date.now()) 
   const storageKey = 'homeauto.demo.data.v1:' + session.user.id + ':' + session.household_id;
   let values = Object.fromEntries(registry.map(([id,,,,, value]) => [id, value])), favorites = ['light-1', 'light-3'], sequence = 0;
   let preferences = { reply_language: 'auto', input_language: 'auto', spoken_replies: false, voice_rate: 1, notification_categories: [], favorites, version: 0 };
-  let commands = [], activity = [], alerts = [], intents = new Map();
+  let commands = [], activity = [], alerts = [], intents = new Map(), speechResults = new Map(), cameraState = "live";
   try {
     const saved = JSON.parse(storage?.getItem(storageKey) || 'null');
     if (saved?.version === 1) {
@@ -28,7 +28,7 @@ export function createDemoHome(session, storage = null, now = () => Date.now()) 
       devices: registry.map(([id,name,type,room_id,board_id]) => ({ id,name,type,room_id,board_id, location: rooms.find(r => r.id === room_id).name, version:1, status:values[id],is_online:1,connectivity:'online', capabilities:type==='light'?['switch']:type==='door'?['lock','unlock']:[id==='sensor-gas'?'gas_reading':'motion_event'],
         observation:{reported_status:values[id],received_at:stamp,freshness:'current',retained:false,source:'demo',version:sequence},latest:id==='sensor-gas'?{raw:220,gas_ppm:53,alert:values[id]==='alert',received_at:stamp}:id==='sensor-motion'?{motion:values[id]==='detected',received_at:stamp}:null,pending_command_id:null })),
       rooms, espBoards: { lights:{id:'lights',name:'Demo lights and sensors',online:true,lastSeen:stamp},door:{id:'door',name:'Demo door',online:true,lastSeen:stamp} }, mqtt:{connected:true,simulated:true},commands,alerts,
-      session:{...session.user,can_unlock:false},preferences,home:{home_name:'Demo home',version:1},speech:{stt_ready:false,tts_ready:false,input_languages:[],reply_languages:[],voices:[]},
+      session:{...session.user,can_unlock:false},preferences,home:{home_name:'Demo home',version:1},speech:{provider:"browser",stt_ready:true,tts_ready:true,stt_state:"browser",tts_state:"browser",input_languages:["en","hi"],reply_languages:["en","hi"],voices:[]},
       system:{simulation:true,mode:'demo',door_enabled:false,persistence_healthy:true,fault:null,remote_lights_enabled:true},capabilities:{metadata_edit:false,rfid:false,local_voice:false,remote_lights:true} });
   };
   const command = (id, action) => {
@@ -50,9 +50,14 @@ export function createDemoHome(session, storage = null, now = () => Date.now()) 
     },
     async request(path, {method='GET',body}={}) {
       const url = new URL(path,'https://demo.invalid'), p=url.pathname;
+      if(p==='/api/assistant/voice-tickets'&&method==='POST')return {provider:'browser',transport:'http'};
+      if(p==='/api/assistant/speech'&&method==='POST'){const value=speechResults.get(body.result_id);if(body.test_phrase==='voice_check')return {provider:'browser',language:body.language,text:body.language==='hi'?'नमस्ते! यह डेमो है।':'Hello! This is a demo.'};if(!value)fail('RESULT_EXPIRED');return {provider:'browser',language:body.language,text:value};}
+      if(p==='/api/simulation/scenario'&&method==='POST'){this.scenario(body.scenario);return {simulated:true};}
+      if(p==='/api/camera/status'&&method==='GET')return {state:cameraState,simulated:true,generation:'browser-demo',frame_url:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#102d2b"/><path d="M220 320V80h200v240" fill="#a7d4b8"/><text x="25" y="40" fill="white" font-size="22">HomeAuto simulated entrance</text></svg>')};
+      if(p==='/api/camera/fixture'&&method==='POST'){if(!['live','offline','stale','fault'].includes(body.scenario))fail('VALIDATION_ERROR');cameraState=body.scenario;return {simulated:true};}
       if (p==='/api/snapshot' && method==='GET') return snapshot();
       if (p==='/api/households' && method==='GET') return {items:[{household_id:session.household_id,name:'Demo home',role:session.user.role}]};
-      if (p==='/api/preferences' && method==='PUT') { if(body.version!==preferences.version)fail('VERSION_CONFLICT');preferences={...preferences,...body,version:preferences.version+1,spoken_replies:false};record('demo_preferences');return clone(preferences); }
+      if (p==='/api/preferences' && method==='PUT') { if(body.version!==preferences.version)fail('VERSION_CONFLICT');preferences={...preferences,...body,version:preferences.version+1};record('demo_preferences');return clone(preferences); }
       const match=p.match(/^\/api\/devices\/([^/]+)\/command$/); if(match&&method==='POST')return command(match[1],body.action);
       if (p==='/api/activity' && method==='GET') { const f=Object.fromEntries(url.searchParams); return {items:clone(activity.filter(e=>(!f.device_id||e.device_id===f.device_id)&&(!f.category||f.category==='all'||e.category===f.category)&&(!f.from||e.timestamp>=f.from)&&(!f.to||e.timestamp<=f.to)&&(!f.q||JSON.stringify(e).toLowerCase().includes(f.q.toLowerCase())))),next_cursor:null}; }
       const alert=p.match(/^\/api\/alerts\/([^/]+)\/(read|acknowledge)$/);
@@ -62,14 +67,17 @@ export function createDemoHome(session, storage = null, now = () => Date.now()) 
         const text=String(body.text||'').toLowerCase(), hi=/[\u0900-\u097f]/.test(text);
         let ids=registry.filter(([id,name])=>text.includes(name.toLowerCase())||text.includes(id.replace('-',' '))).map(d=>d[0]);
         if(/gas|गैस/.test(text))ids=['sensor-gas'];else if(/motion|मोशन/.test(text))ids=['sensor-motion'];else if(/door|दरवाज/.test(text))ids=['door-1'];else if(/all lights|सभी लाइट/.test(text))ids=registry.filter(d=>d[2]==='light').map(d=>d[0]);else if(!ids.length&&/light|लाइट/.test(text))ids=['light-1'];
-        if(!ids.length)fail('INTENT_UNKNOWN');
+        if(!ids.length){if(/^(?:hi|hello|hey|नमस्ते|नमस्कार|हैलो|thanks|thank you|धन्यवाद|bye|goodbye|अलविदा)[!.? ]*$/u.test(text)){const intent_id=crypto.randomUUID();intents.set(intent_id,{intent:{kind:'conversation',device_ids:[],language:hi?'hi':'en'},expires:now()+30000});return {intent_id,intent:{kind:'conversation',device_ids:[],language:hi?'hi':'en'}};}fail('INTENT_UNKNOWN');}
         const action=/\boff\b|बंद/.test(text)?'off':/\bon\b|चालू/.test(text)?'on':null;
         const intent={kind:action?'command':'query',device_ids:ids,action,language:hi?'hi':'en',sensitive:!!action&&ids.includes('door-1')};const intent_id=crypto.randomUUID();intents.set(intent_id,{intent,expires:now()+30000});if(intents.size>32)intents.delete(intents.keys().next().value);return {intent_id,intent,expires_at:new Date(now()+30000).toISOString()};
       }
       if(p==='/api/assistant/execute'&&method==='POST'){
         const saved=intents.get(body.intent_id);intents.delete(body.intent_id);if(!saved||saved.expires<now())fail('INTENT_EXPIRED');const intent=saved.intent;if(intent.sensitive)fail('REMOTE_DOOR_DISABLED');
-        if(intent.kind==='query')return {answer:{result_id:crypto.randomUUID(),language:intent.language,text:(intent.language==='hi'?'डेमो: ':'Demo: ')+intent.device_ids.map(id=>registry.find(d=>d[0]===id)[1]+': '+values[id]).join('. ')}};
-        return {commands:intent.device_ids.map(id=>command(id,intent.action).command),errors:[]};
+        const result_id=crypto.randomUUID();let result;
+        if(intent.kind==='conversation')result={answer:{result_id,language:intent.language,text:intent.language==='hi'?'नमस्ते! मैं श्रीमान हूँ। यह डेमो घर है।':'Hello! I am Shrimaan. This is your demo home.'}};
+        else if(intent.kind==='query')result={answer:{result_id,language:intent.language,text:(intent.language==='hi'?'डेमो: ':'Demo: ')+intent.device_ids.map(id=>registry.find(d=>d[0]===id)[1]+': '+values[id]).join('. ')}};
+        else result={commands:intent.device_ids.map(id=>command(id,intent.action).command),errors:[],result_id,language:intent.language};
+        speechResults.set(result_id,result.answer?.text||(intent.language==='hi'?'डेमो: ':'Demo: ')+result.commands.map(c=>registry.find(d=>d[0]===c.device_id)[1]+': '+c.action).join('. '));if(speechResults.size>32)speechResults.delete(speechResults.keys().next().value);return result;
       }
       fail('DEMO_ACTION_UNAVAILABLE');
     },

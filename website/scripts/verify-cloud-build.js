@@ -11,7 +11,7 @@ async function verifyCloudBuild() {
   const banned = [
     /server\/db\//,
     /server\/certs\//,
-    /server\/voice\/(?!intent\.js$)/,
+    /server\/voice\/(?!(?:intent|dialogue)\.js$)/,
     /server\/scripts\//,
     /\.local\//,
     /\.node$/,

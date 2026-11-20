@@ -20,6 +20,7 @@ export const Api = {
     if (!path.startsWith('/api/')) throw new Error('Same-origin API path required');
     if (this.mutationsPaused && method !== 'GET' && !path.startsWith('/api/auth/')) throw Object.assign(new Error('Home transition in progress'), { code: 'HOME_SWITCH_IN_PROGRESS', status: 409 });
     if (this.demo && !path.startsWith('/api/auth/')) return this.demo.request(path,{method,body});
+    if(this.mode==='cloud' && /\/(?:modules|system|camera|logs\/rfid-cards|door\/pin|rooms|devices|settings\/home)(?:\/|$)/.test(path) && !path.endsWith('/command'))timeoutMs=25000;
     const sessionVersion = this.sessionVersion; const started = performance.now(); const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? Math.max(1000, Math.min(25000, timeoutMs)) : 10000);
     const cancel = () => controller.abort();
     if (signal?.aborted) cancel(); else signal?.addEventListener('abort', cancel, { once: true });
@@ -30,6 +31,15 @@ export const Api = {
       catch { throw Object.assign(new Error('HomeAuto did not return a valid response'), { code: 'RESPONSE_UNAVAILABLE', status: response.status, request_id: response.headers.get('x-request-id'), retryable: response.status >= 500 }); }
       if (result.server_time && Array.isArray(result.devices)) result.client_rtt_ms = Math.min(10000, Math.max(0, performance.now() - started));
       if (!response.ok) { const error = new Error(result.error?.message || 'Request failed'); Object.assign(error, result.error, { status: response.status }); if (response.status === 401 && sessionVersion === this.sessionVersion) window.dispatchEvent(new CustomEvent('session-expired')); throw error; }
+      if(result.hub_request&&!path.startsWith('/api/hub-requests/')){
+        const id=result.hub_request;if(!/^[a-f0-9-]{36}$/.test(id))throw {code:'RESPONSE_UNAVAILABLE'};
+        while(!controller.signal.aborted){
+          await new Promise((resolve,reject)=>{const stop=()=>{clearTimeout(timer);reject({code:'CONNECTION_LOST'});};const timer=setTimeout(()=>{controller.signal.removeEventListener('abort',stop);resolve();},800);controller.signal.addEventListener('abort',stop,{once:true});});
+          if(sessionVersion!==this.sessionVersion)throw {code:'HOME_SWITCH_IN_PROGRESS'};
+          const status=await this.request('/api/hub-requests/'+id,{signal:controller.signal});
+          if(status.hub_result){const reply=status.hub_result;if(reply.status>=400)throw Object.assign(new Error(reply.body?.error?.message||'Home hub request failed'),reply.body?.error,{status:reply.status});return reply.body;}
+        }throw {code:'HUB_REQUEST_UNCERTAIN'};
+      }
       if (result.csrf_token && sessionVersion === this.sessionVersion) { if (result.csrf_token !== this.csrf) this.sessionVersion++; this.csrf = result.csrf_token; }
       return result;
     } catch (error) { if (typeof error.code !== 'string') throw Object.assign(new Error('Connection unavailable'), { code: 'CONNECTION_LOST', cause: error }); throw error; } finally { clearTimeout(timeout); signal?.removeEventListener('abort', cancel); }

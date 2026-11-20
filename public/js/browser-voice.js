@@ -7,6 +7,26 @@ export function recognitionLocale(language, appLanguage = 'en') {
   return (language === 'auto' ? appLanguage : language) === 'hi' ? 'hi-IN' : 'en-IN';
 }
 
+// The domain uses authenticated HTTP; Vercel does not host the local voice socket.
+class HttpVoiceTransport {
+  constructor() { this.readyState = 1; queueMicrotask(() => this.onopen?.()); }
+  send(raw) {
+    const message = JSON.parse(raw);
+    if (message.type === 'cancel') return this.close();
+    if (message.type === 'start') {
+      this.start = message;
+      queueMicrotask(() => this.emit({ type: 'voice_ready' }));
+    } else if (message.type === 'transcript') {
+      this.controller = new AbortController();
+      Api.request('/api/assistant/interpret', { method: 'POST', body: { text: message.text, language: this.start.language, wake_required: !!this.start.wake_required }, signal: this.controller.signal, timeoutMs: 8000 })
+        .then(result => this.emit({ ...result, type: 'intent' }))
+        .catch(error => this.emit({ type: 'voice_error', code: error.code || 'VOICE_CONNECTION_FAILED' }));
+    }
+  }
+  emit(message) { if (this.readyState === 1) this.onmessage?.({ data: JSON.stringify({ ...message, utterance_id: this.start.utterance_id }) }); }
+  close() { this.readyState = 3; this.controller?.abort(); }
+}
+
 // Web Speech chooses one recognition language. Automatic follows the app
 // language; the recognized script determines the automatic reply language.
 export class BrowserVoiceCapture {
@@ -21,10 +41,10 @@ export class BrowserVoiceCapture {
     try {
       if (!browserVoiceAvailable()) throw { code: 'BROWSER_RECOGNITION_UNAVAILABLE' };
       this.setState('permission');
-      const { ticket } = await Api.request('/api/assistant/voice-tickets', { method: 'POST', body: {} });
+      const { ticket, transport } = await Api.request('/api/assistant/voice-tickets', { method: 'POST', body: {} });
       if (!current()) return;
       this.utterance = crypto.randomUUID(); this.finalText = '';
-      const ws = this.ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/voice`);
+      const ws = this.ws = transport === 'http' ? new HttpVoiceTransport() : new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/voice`);
       const ready = new Promise((resolve, reject) => {
         let settled = false;
         const settle = error => { if (settled) return; settled = true; clearTimeout(timer); this.cancelHandshake = null; error ? reject(error) : resolve(); };

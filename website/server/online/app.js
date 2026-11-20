@@ -17,9 +17,12 @@ function createOnlineApp({ pool, config, logger = console }) {
       allowCommands: !!config.allowCommands,
       allowDoor: !!config.allowDoor,
       simulation: !!config.simulation,
+      hubManagement: !!config.hubRelayKey,
     });
   app.locals.auth = auth;
   app.locals.store = store;
+  const hubRelay = require('./hub-relay').createHubRelay(store,config.hubRelayKey);
+  app.locals.hubRelay = hubRelay;
   const gatewaySetup = createGatewaySetup(pool, () => [...config.origins][0]);
   const route = (fn) => (req, res, next) =>
     Promise.resolve()
@@ -57,7 +60,7 @@ function createOnlineApp({ pool, config, logger = console }) {
       "Referrer-Policy": "no-referrer",
       "Content-Security-Policy":
         "default-src 'self';script-src 'self';style-src 'self';connect-src 'self';img-src 'self' data:;font-src 'self';media-src 'self' blob:;object-src 'none';base-uri 'self';frame-ancestors 'none';form-action 'self'",
-      "Permissions-Policy": "microphone=(),camera=(),geolocation=()",
+      "Permissions-Policy": "microphone=(self),camera=(),geolocation=()",
     });
     if (config.secure !== false)
       res.set("Strict-Transport-Security", "max-age=31536000");
@@ -84,8 +87,10 @@ function createOnlineApp({ pool, config, logger = console }) {
       transport: "poll",
       poll_ms: 2000,
       capabilities: {
-        metadata_edit: false,
-        rfid: false,
+        metadata_edit: hubRelay.enabled,
+        rfid: hubRelay.enabled,
+        hub_management: hubRelay.enabled,
+        browser_voice: true,
         local_voice: false,
         remote_lights: !!config.allowCommands,
         remote_door: !!config.allowDoor,
@@ -182,6 +187,9 @@ function createOnlineApp({ pool, config, logger = console }) {
       );
     }),
   );
+  app.post('/api/gateway/hub-requests/claim',route(async(req,res)=>res.json(await hubRelay.claim(req.gateway))));
+  app.post('/api/gateway/hub-requests/:id/redeem',route(async(req,res)=>{if(!uuid(req.params.id))fail('NOT_FOUND',404);res.json(await hubRelay.redeem(req.gateway,req.params.id));}));
+  app.post('/api/gateway/hub-requests/:id/result',route(async(req,res)=>{if(!uuid(req.params.id))fail('NOT_FOUND',404);res.json(await hubRelay.complete(req.gateway,req.params.id,req.body));}));
   app.use("/api/gateway", (req, res) =>
     res.status(404).json({ error: { code: "NOT_FOUND", retryable: false } }),
   );
@@ -207,6 +215,14 @@ function createOnlineApp({ pool, config, logger = console }) {
     }),
   );
   app.get("/api/auth/session", (req, res) => res.json(auth.dto(req.actor)));
+  app.get('/api/hub-requests/:id',route(async(req,res)=>{if(!uuid(req.params.id))fail('NOT_FOUND',404);res.json(await hubRelay.result(req.actor,req.params.id));}));
+  app.use('/api',route(async(req,res,next)=>{
+    const path='/api'+req.path;
+    if(!hubRelay.enabled||!require('./hub-relay').allowed(req.method,path))return next();
+    // Metadata reads come from the synchronized cloud snapshot; management and
+    // diagnostics execute only on the paired hub through outbound polling.
+    res.status(202).json(await hubRelay.enqueue(req.actor,req.method,path,req.body));
+  }));
   app.get('/api/gateway-setup', route(async (req, res) => res.json(await gatewaySetup.status(req.actor))));
   app.post('/api/gateway-setup', route(async (req, res) => {
     await auth.rate('gateway-setup:' + req.actor.user_id, 5, 3600);
@@ -426,183 +442,7 @@ function createOnlineApp({ pool, config, logger = console }) {
       res.json(await store.feed(req.actor, cursor));
     }),
   );
-  app.post(
-    "/api/assistant/interpret",
-    route(async (req, res) => {
-      fields(req.body, ["text", "language"], ["text"]);
-      if (
-        req.body.language &&
-        !["en", "hi", "auto"].includes(req.body.language)
-      )
-        fail("VALIDATION_ERROR");
-      const input = text(req.body.text, 500);
-      const s = await store.snapshot(req.actor);
-      const parsed = resolveCommand(input, s.devices, s.rooms, []);
-      if (!parsed.ok) fail("INTENT_" + parsed.reason.toUpperCase(), 422);
-      const id = crypto.randomUUID();
-      await store.tx(req.actor, async (c) => {
-        const count = (
-          await c.query(
-            "SELECT count(*)::int n FROM homeauto_online.intents WHERE household_id=$1 AND user_id=$2 AND expires_at>now()",
-            [req.actor.household_id, req.actor.user_id],
-          )
-        ).rows[0].n;
-        if (count >= 20) fail("ASSISTANT_BUSY", 429);
-        await c.query(
-          "INSERT INTO homeauto_online.intents(intent_id,household_id,user_id,session_hash,intent,expires_at) VALUES($1,$2,$3,$4,$5::jsonb,now()+interval '30 seconds')",
-          [
-            id,
-            req.actor.household_id,
-            req.actor.user_id,
-            req.actor.token_hash,
-            JSON.stringify(parsed.intent),
-          ],
-        );
-      });
-      res.json({
-        intent: parsed.intent,
-        intent_id: id,
-        expires_at: new Date(Date.now() + 30000).toISOString(),
-      });
-    }),
-  );
-  app.post(
-    "/api/assistant/execute",
-    route(async (req, res) => {
-      fields(
-        req.body,
-        ["intent_id", "idempotency_key"],
-        ["intent_id", "idempotency_key"],
-      );
-      if (!uuid(req.body.intent_id) || !uuid(req.body.idempotency_key))
-        fail("VALIDATION_ERROR");
-      const result = await store.tx(req.actor, async (c) => {
-        const saved = (
-          await c.query(
-            "SELECT * FROM homeauto_online.intents WHERE intent_id=$1 AND household_id=$2 AND user_id=$3 AND session_hash=$4 AND expires_at>now()",
-            [
-              req.body.intent_id,
-              req.actor.household_id,
-              req.actor.user_id,
-              req.actor.token_hash,
-            ],
-          )
-        ).rows[0];
-        if (!saved) fail("INTENT_EXPIRED", 409);
-        if (
-          saved.execution_key &&
-          saved.execution_key !== req.body.idempotency_key
-        )
-          fail("INTENT_ALREADY_USED", 409);
-        const intent = saved.intent;
-        if (intent.sensitive) fail("REMOTE_DOOR_DISABLED", 403);
-        if (saved.result && intent.kind !== "query") return saved.result;
-        const preferred =
-          (
-            await c.query(
-              "SELECT value FROM homeauto_online.preferences WHERE household_id=$1 AND user_id=$2",
-              [req.actor.household_id, req.actor.user_id],
-            )
-          ).rows[0]?.value?.reply_language || "auto";
-        const language =
-          preferred === "auto"
-            ? intent.language === "hi"
-              ? "hi"
-              : "en"
-            : preferred;
-        let answer;
-        if (intent.kind === "query") {
-          const s = await store.snapshotIn(c, req.actor);
-          answer = {
-            answer: {
-              result_id: crypto.randomUUID(),
-              message_key: "query_result",
-              language,
-              text: intent.device_ids
-                .map((id) => {
-                  const d = s.devices.find((d) => d.id === id);
-                  const labels = {
-                    on: "चालू",
-                    off: "बंद",
-                    locked: "लॉक",
-                    unlocked: "अनलॉक",
-                    normal: "सामान्य",
-                    alert: "चेतावनी",
-                    clear: "हलचल नहीं",
-                    detected: "हलचल हुई",
-                  };
-                  const value =
-                    d.observation.freshness === "current"
-                      ? language === "hi"
-                        ? labels[d.observation.reported_status] ||
-                          "स्थिति उपलब्ध नहीं है"
-                        : d.observation.reported_status
-                      : language === "hi"
-                        ? "स्थिति उपलब्ध नहीं है"
-                        : "status unavailable";
-                  const qualifier =
-                    d.type === "door"
-                      ? language === "hi"
-                        ? " वास्तविक लॉक की स्थिति मापी नहीं जाती।"
-                        : " Physical lock position is not sensed."
-                      : "";
-                  const report =
-                    d.observation.freshness === "current"
-                      ? language === "hi"
-                        ? `कंट्रोलर की रिपोर्ट: ${value}`
-                        : `Controller reports ${value}`
-                      : value;
-                  return `${d.name}: ${report}.${qualifier}`;
-                })
-                .join(" "),
-            },
-          };
-        } else {
-          const commands = [],
-            errors = [];
-          for (const id of intent.device_ids) {
-            const key = crypto
-              .createHash("sha256")
-              .update(req.body.idempotency_key + id)
-              .digest("hex");
-            const derived = `${key.slice(0, 8)}-${key.slice(8, 12)}-4${key.slice(13, 16)}-8${key.slice(17, 20)}-${key.slice(20, 32)}`;
-            try {
-              commands.push(
-                await store.requestIn(c, req.actor, id, {
-                  action: intent.action,
-                  idempotency_key: derived,
-                }),
-              );
-            } catch (e) {
-              if (!(e instanceof OnlineError)) throw e;
-              errors.push({ device_id: id, code: e.code });
-            }
-          }
-          answer = {
-            commands,
-            errors,
-            result_id: crypto.randomUUID(),
-            language,
-          };
-        }
-        await c.query(
-          "UPDATE homeauto_online.intents SET execution_key=$2,result=$3::jsonb WHERE intent_id=$1",
-          [saved.intent_id, req.body.idempotency_key, JSON.stringify(answer)],
-        );
-        return answer;
-      });
-      res.status(result.answer ? 200 : 202).json(result);
-    }),
-  );
-  app.all("/api/assistant/voice-tickets", (req, res, next) =>
-    next(new OnlineError("LOCAL_VOICE_ONLY", 503)),
-  );
-  app.all("/api/assistant/speech*", (req, res, next) =>
-    next(new OnlineError("LOCAL_VOICE_ONLY", 503)),
-  );
-  app.all("/api/assistant/audio*", (req, res, next) =>
-    next(new OnlineError("LOCAL_VOICE_ONLY", 503)),
-  );
+  require('./assistant').installOnlineAssistant(app, { store, config, route });
   app.get("/api/ai/models", (req, res, next) =>
     req.actor.role === "owner"
       ? res.json({ assets: [] })

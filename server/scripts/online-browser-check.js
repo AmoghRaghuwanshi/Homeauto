@@ -237,11 +237,11 @@ async function main() {
     assert.equal(
       await page
         .getByRole("button", {
-          name: "Voice stays on the home hub",
+          name: "Tap to speak",
           exact: true,
         })
-        .isDisabled(),
-      true,
+        .count(),
+      1,
     );
     assert.equal(
       await page.getByText("Local setup required", { exact: true }).count(),
@@ -264,13 +264,13 @@ async function main() {
     );
     await inspect(page, "05-375-assistant");
     result.checks.push(
-      "Typed cloud assistant works; microphone stays disabled/local; suggestions match capabilities",
+      "Typed cloud assistant and browser microphone UI available; suggestions match capabilities",
     );
     await page.goto(preview.url + "/settings/privacy");
     await ready(page);
     assert.ok(
       await page
-        .getByText("Cloud access and local control", { exact: true })
+        .getByText("Home data and browser voice", { exact: true })
         .count(),
     );
     assert.equal(
@@ -280,7 +280,7 @@ async function main() {
     await page.goto(preview.url + "/security/access-cards");
     await ready(page);
     await page
-      .getByText("Access cards stay on the home hub", { exact: true })
+      .getByText("Home gateway unavailable", { exact: true })
       .waitFor();
     result.checks.push(
       "Cloud privacy and local-only RFID statements are accurate",

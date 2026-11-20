@@ -20,6 +20,7 @@ let authNotice = false, authUsername = '', authInitialized = false;
 let signupRequest = null, signupFailure = null;
 let realDemoSession = null;
 let pageLeaving = false;
+let renderingPath = null;
 const ctx = {
   transitioning: false, realmGeneration: 0, preferenceOperation: null,
   pending: new Set(), commandOwners: new Map(), feedback: new Map(), readingAlerts: new Set(), filters: {}, conversation: { transcript: '', response: '', draft: '', resultId: null, securityLink: false }, wakeRequired: false,
@@ -189,13 +190,13 @@ function setVoiceState(value) {
   const ready = speechAvailable(state.snapshot?.speech);
   const startup = speechStatus(state.snapshot?.speech);
   const cloud = Api.mode === 'cloud';
-  const readiness = document.getElementById('assistant-readiness'); if (readiness) readiness.textContent = t(cloud ? 'Voice is local' : startup.label);
-  const setupNote = document.getElementById('assistant-setup-note'); if (setupNote) { setupNote.hidden = cloud || ready && state.snapshot?.speech.provider !== 'browser'; setupNote.textContent = t(startup.note); }
+  const readiness = document.getElementById('assistant-readiness'); if (readiness) readiness.textContent = t(startup.label);
+  const setupNote = document.getElementById('assistant-setup-note'); if (setupNote) { setupNote.hidden = ready && state.snapshot?.speech.provider !== 'browser'; setupNote.textContent = t(startup.note); }
   const retry = document.getElementById('retry-voice'); if (retry) retry.hidden = cloud || state.session?.user.role !== 'owner' || !['stt', 'tts'].some(kind => ['failed', 'not_configured'].includes(state.snapshot?.speech?.[kind + '_state']));
-  const actionLabel = t(cloud ? 'Voice stays on the home hub' : listening ? 'Finish recording' : value === 'processing' ? 'Processing voice' : 'Tap to speak');
+  const actionLabel = t(listening ? 'Finish recording' : value === 'processing' ? 'Processing voice' : 'Tap to speak');
   mic.setAttribute('aria-pressed', String(listening)); mic.setAttribute('aria-label', actionLabel);
   mic.disabled = !ready || !!ctx.preferenceBusy || ['processing', 'permission'].includes(value);
-  mic.replaceChildren(icon(listening ? 'stop' : 'mic')); label.textContent = actionLabel; status.textContent = value === 'processing' && !cloud ? voiceProgressText(ctx.voice?.phase) : t(cloud ? 'You can type requests here.' : listening ? 'Listening. Stops after a short pause. You can also tap Finish recording.' : value === 'permission' ? 'Connecting…' : ready ? 'Ready when you are' : startup.label); cancel.hidden = cloud || value === 'ready';
+  mic.replaceChildren(icon(listening ? 'stop' : 'mic')); label.textContent = actionLabel; status.textContent = value === 'processing' ? voiceProgressText(ctx.voice?.phase) : t(listening ? 'Listening. Stops after a short pause. You can also tap Finish recording.' : value === 'permission' ? 'Connecting…' : ready ? 'Ready when you are' : startup.label); cancel.hidden = value === 'ready';
 }
 function assistantError(error) { ctx.conversation.error = true; ctx.assistantBusy = false; ctx.scheduleWake?.(); if (!['INTENT_AMBIGUOUS','RECOGNITION_UNCLEAR','RECOGNITION_AMBIGUOUS','WAKE_PHRASE_REQUIRED','INTENT_UNSUPPORTED','INTENT_UNKNOWN_TARGET','INTENT_NEGATED','INTENT_CONFLICTING'].includes(error.code)) ctx.live?.stop(); ctx.conversation.response = errorText(error, ctx.conversation.replyLanguage); ctx.conversation.securityLink = error.code === 'SENSITIVE_ACTION_REQUIRES_UI'; ctx.updateConversation?.(); ctx.notify(errorText(error), true); if (['INTENT_AMBIGUOUS','RECOGNITION_UNCLEAR','RECOGNITION_AMBIGUOUS','MICROPHONE_NO_SPEECH','WAKE_PHRASE_REQUIRED','VOICE_REQUEST_TOO_LONG','INTENT_UNSUPPORTED','INTENT_UNKNOWN_TARGET','INTENT_NEGATED','INTENT_CONFLICTING','SENSITIVE_ACTION_REQUIRES_UI'].includes(error.code) && state.snapshot?.speech?.tts_ready && state.snapshot.preferences.spoken_replies) ctx.speak(null, false, error.code); }
 async function executeIntent(parsed, generation = ctx.assistantGeneration) {
@@ -258,7 +259,7 @@ ctx.updateWake = () => {
   for (const id of ['wake-settings-toggle', 'assistant-wake-toggle']) { const button = document.getElementById(id); if (button) { button.textContent = t(enabled ? 'Stop wake listening' : 'Start wake listening'); button.setAttribute('aria-pressed', String(enabled)); } }
 };
 ctx.wake = new WakeListener({ getLanguage: () => preferences.language,
-  canListen: () => !!state.session && !!preferences.wakeRequired && Api.mode === 'local' && !ctx.transitioning && !document.hidden && !ctx.assistantBusy && !ctx.live.active && ctx.voice.state === 'ready' && !ctx.browserSpeech?.utterance && !document.querySelector('dialog[open]'),
+  canListen: () => !!state.session && !!preferences.wakeRequired && !ctx.transitioning && !document.hidden && !ctx.assistantBusy && !ctx.live.active && ctx.voice.state === 'ready' && !ctx.browserSpeech?.utterance && !document.querySelector('dialog[open]'),
   onState: () => ctx.updateWake(),
   onError: error => { ctx.notify(errorText(error), true); ctx.updateWake(); },
   onWake: result => {
@@ -269,7 +270,7 @@ ctx.wake = new WakeListener({ getLanguage: () => preferences.language,
     if (state.snapshot.preferences.spoken_replies) ctx.live.start(first); else first();
   },
 });
-ctx.startWake = () => { if (!state.session || Api.mode !== 'local' || !speechAvailable(state.snapshot?.speech)) return ctx.notify(errorText({code:'BROWSER_RECOGNITION_UNAVAILABLE'}), true); ctx.endLive(); ctx.wake.start(state.snapshot.preferences.input_language); };
+ctx.startWake = () => { if (!state.session || !speechAvailable(state.snapshot?.speech)) return ctx.notify(errorText({code:'BROWSER_RECOGNITION_UNAVAILABLE'}), true); ctx.endLive(); ctx.wake.start(state.snapshot.preferences.input_language); };
 ctx.toggleWake = () => { if (ctx.wake.enabled) ctx.wake.stop(); else ctx.startWake(); };
 ctx.setWakeEnabled = enabled => { ctx.wake.stop(); applyPreferences({wakeRequired:enabled}); if (enabled) ctx.startWake(); };
 document.addEventListener('close', () => ctx.scheduleWake(), true);
@@ -300,7 +301,7 @@ function frameView(view) {
   view.prepend(header); return view;
 }
 function globalBanner() {
-  if (Api.mode === 'local' && state.snapshot?.system?.hardware_required && state.snapshot.system.hardware_ready) {
+  if (state.connected && state.snapshot?.system?.hardware_required && state.snapshot.system.hardware_ready && (Api.mode !== 'cloud' || isGatewayCurrent() && state.snapshot.capabilities?.remote_lights)) {
     return el('div', { class: 'banner', role: 'status' }, t('Camera setup is pending. Check optional module connections on the Modules page.'), link('Modules', '/modules', 'button button-secondary'));
   }
   if (Api.demo) return el('div',{class:'banner banner-simulation demo-mode-bar',role:'status'},icon('info'),el('div',{class:'grow'},el('strong',{},t('Demo home')),el('p',{class:'small'},t('Simulated devices. No physical commands are sent.'))),button('Use my real home',()=>ctx.exitDemo(),{kind:'secondary'}));
@@ -320,7 +321,7 @@ async function render(focus = false) {
   if (!state.session) return renderLogin();
   if (['/signup', '/login'].includes(location.pathname)) { navigation.go('/', { replace: true, direction: 'none' }); return; }
   if (!state.snapshot) return;
-  const id = ++renderId; const active = document.activeElement; const samePath = lastPath.split('?')[0] === location.pathname;
+  const id = ++renderId; renderingPath = navigation.path(); const active = document.activeElement; const samePath = lastPath.split('?')[0] === location.pathname;
   const drafts = samePath && lastPath === navigation.path() && main ? [...main.querySelectorAll('input,textarea,select')].filter(n => n.name && n.type !== 'radio' && n.type !== 'checkbox' && n.type !== 'range').map(n => [n.name, n.value]) : [];
   let focused = samePath ? active?.closest('dialog')?.returnFocus || captureFocus(active) : null; let selection = active?.selectionStart;
   const disclosures = samePath && main ? [...main.querySelectorAll('details')].map(n => n.open) : [];
@@ -356,7 +357,7 @@ async function render(focus = false) {
     } else if (!document.querySelector('dialog[open]') && focused) { restoreFocus(focused); try { document.activeElement?.setSelectionRange(selection, selection); } catch {} }
     setVoiceState(ctx.voice.state);
   } catch (e) { if (id !== renderId || !state.session) return; main.replaceChildren(frameView(el('div', {}, el('h1', { tabindex: '-1' }, t(routeInfo(location.pathname, state.snapshot).title)), empty('Unavailable', errorText(e), button('Try again', () => render()))))); }
-  finally { if (id === renderId && main) main.removeAttribute('aria-busy'); }
+  finally { if (id === renderId) { renderingPath = null; main?.removeAttribute('aria-busy'); } }
 }
 function onUpdate() {
   if (pageLeaving) return;
@@ -381,6 +382,9 @@ function onUpdate() {
   if (location.pathname === '/assistant' && assistantBuilt) { setVoiceState(ctx.voice.state); ctx.updateConversation?.(); return; }
   // Keep cursor pages and reading position until the user explicitly refreshes.
   if (!hardwareBlocked && location.pathname === '/security/activity' && lastPath === navigation.path() && main?.children.length) return;
+  // A laptop round trip may take longer than a cloud snapshot poll. Let the
+  // current page finish instead of invalidating it with every telemetry update.
+  if(renderingPath === navigation.path())return;
   render();
 }
 function authLanguages() {

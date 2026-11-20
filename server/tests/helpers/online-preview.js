@@ -11,13 +11,15 @@ async function createOnlinePreview({
   autoObserve = true,
   startGateway = true,
   databaseFixture = null,
+  hubManagement = false,
 } = {}) {
   const database = databaseFixture || (await onlineFixture());
   const config = {
     origins: new Set(),
     secure: false,
     allowCommands,
-    simulation: true,
+    simulation: !hubManagement,
+    hubRelayKey: hubManagement ? require('node:crypto').randomBytes(32).toString('hex') : undefined,
   };
   const api = createOnlineApp({
     pool: database.pool,
@@ -129,7 +131,18 @@ async function createOnlinePreview({
   }
   home.setConnected(true);
   report();
+  let hubServer;
+  let hubRequest;
+  if(hubManagement){
+    const {Sessions}=require('../../auth/sessions'),{Assistant}=require('../../services/assistant'),{BrowserSpeechService}=require('../../voice/browser-speech-service'),{createApp}=require('../../app');
+    const sessions=new Sessions(repo,{secure:false,gateway:gatewayConfig}),assistant=new Assistant(home),speech=new BrowserSpeechService(home,assistant);
+    const {ModuleService}=require('../../modules/service');
+    const modules=new ModuleService({home,config:{MQTT_ENABLED:true,MQTT_BROKER:'mqtts://fixture.invalid:8883',MQTT_USERNAME:'fixture',MQTT_PASSWORD:'fixture'},store:{load:()=>({}),save:()=>{}},reconnect:async()=>{},probe:async()=>false});
+    const local=createApp({repo,home,sessions,assistant,speech,modules});hubServer=http.createServer(local);await new Promise(r=>hubServer.listen(0,'127.0.0.1',r));
+    hubRequest=require('../../online/hub-handler').createHubHandler({sessions,config:{},getServer:()=>hubServer});
+  }
   const worker = createGatewayWorker(home, gatewayConfig, {
+    hubRequest,
     fetchImpl: (endpoint, options) =>
       fetch(endpoint.replace(gatewayConfig.origin, url), options),
   });
@@ -171,6 +184,7 @@ async function createOnlinePreview({
       closed = true;
       clearInterval(timer);
       worker.stop();
+      if(hubServer){hubServer.closeAllConnections();await new Promise(resolve=>hubServer.close(resolve));}
       server.closeAllConnections();
       await new Promise((resolve) => server.close(resolve));
       repo.close();

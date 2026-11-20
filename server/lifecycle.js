@@ -62,7 +62,7 @@ async function startRuntime(config = loadConfig(), overrides = {}) {
       },
     });
     if (config.CLOUD_SYNC) syncWorker = createSyncWorker(repo, config.CLOUD_SYNC);
-    if (config.GATEWAY) gatewayWorker = createGatewayWorker(home, config.GATEWAY);
+    if (config.GATEWAY) gatewayWorker = createGatewayWorker(home, config.GATEWAY, { hubRequest: require('./online/hub-handler').createHubHandler({sessions,config,getServer:()=>server}) });
     const app = createApp({ repo, home, sessions, assistant, speech, camera, modules, doorConfig, config, cloudStatus: () => config.GATEWAY ? gatewayStatus(repo,true) : syncStatus(repo, !!config.CLOUD_SYNC) });
     server = secure ? https.createServer({ key: fs.readFileSync(config.KEY_PATH), cert: fs.readFileSync(config.CERT_PATH) }, app) : http.createServer(app);
     realtime = attachRealtime(server, { app, home, sessions, assistant, speech });

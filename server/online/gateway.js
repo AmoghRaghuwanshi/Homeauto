@@ -236,7 +236,7 @@ async function readJSON(response, max = 16384) {
 function createGatewayWorker(
   home,
   config,
-  { fetchImpl = fetch, random = Math.random } = {},
+  { fetchImpl = fetch, random = Math.random, hubRequest } = {},
 ) {
   const repo = home.repo,
     origin = endpoint(config.origin);
@@ -250,6 +250,27 @@ function createGatewayWorker(
     role: "resident",
     can_unlock: true,
   };
+  let hubBusy=false;
+  const hubControllers=new Set();
+  async function hubPost(path,body){
+    const abort=new AbortController();hubControllers.add(abort);const timeout=setTimeout(()=>abort.abort(),5000);
+    try{const response=await fetchImpl(origin+path,{method:'POST',redirect:'error',signal:abort.signal,headers:{Authorization:'Bearer '+config.token,'Content-Type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw Error('Hub relay unavailable');return await readJSON(response,200000);}
+    finally{clearTimeout(timeout);hubControllers.delete(abort);}
+  }
+  async function pollHub(){
+    if(hubBusy||stopped||!hubRequest)return;hubBusy=true;
+    try{const batch=await hubPost('/api/gateway/hub-requests/claim',{});if(!Array.isArray(batch.tasks)||batch.tasks.length>4)return;
+      for(const task of batch.tasks){if(stopped||!uuid(task.id))break;
+        const started=Date.now();let admitted;try{admitted=await hubPost(`/api/gateway/hub-requests/${task.id}/redeem`,{});}catch{continue;}
+        const age=Date.now()-started;
+        if(stopped||!Number.isFinite(admitted.ttl_ms)||admitted.ttl_ms<=age||admitted.ttl_ms>5000)continue;
+        admitted.expires=Date.now()+admitted.ttl_ms-age;
+        if(admitted.actor?.reauth_age_ms!==null)admitted.actor.reauth_at=new Date(Date.now()-admitted.actor.reauth_age_ms-age).toISOString();
+        let result;try{result=await hubRequest(admitted);}catch{result={status:503,body:{error:{code:'HUB_REQUEST_UNCERTAIN',retryable:false}}};}
+        if(!stopped)await hubPost(`/api/gateway/hub-requests/${task.id}/result`,result);
+      }
+    }catch{/* Management failures do not interrupt telemetry or device commands. */}finally{hubBusy=false;}
+  }
   async function post(path, body) {
     const timeout = setTimeout(() => controller.abort(), 5000);
     timeout.unref();
@@ -452,6 +473,7 @@ function createGatewayWorker(
         if (stopped) break;
         await processCommand(command, result.server_time);
       }
+      void pollHub();
       failures = 0;
       return { state: "connected" };
     } catch (error) {
@@ -501,6 +523,7 @@ function createGatewayWorker(
       stopped = true;
       clearTimeout(timer);
       controller?.abort();
+      for(const abort of hubControllers)abort.abort();
     },
     status: () => gatewayStatus(repo, true),
   };

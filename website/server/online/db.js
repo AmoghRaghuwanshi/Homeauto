@@ -122,6 +122,7 @@ function loadOnlineConfig(env = process.env) {
     baseUrl: base.origin,
     origins,
     secure: true,
+    hubRelayKey: /^[a-f0-9]{64}$/.test(env.HOMEAUTO_HUB_RELAY_KEY || '') ? env.HOMEAUTO_HUB_RELAY_KEY : undefined,
     allowCommands:
       env.HOMEAUTO_CLOUD_REMOTE_LIGHTS_ENABLED === "1" &&
       env.HOMEAUTO_REMOTE_LIGHTS_APPROVED === "1",
