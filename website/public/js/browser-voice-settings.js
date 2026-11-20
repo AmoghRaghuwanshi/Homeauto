@@ -40,6 +40,7 @@ export function browserVoiceSettings(ctx) {
   volume.addEventListener('input', () => { output.textContent = Math.round(Number(volume.value) * 100) + '%'; volume.setAttribute('aria-valuetext', output.textContent); });
   volume.addEventListener('change', () => { ctx.endLive(); applyPreferences({ voiceVolume: Number(volume.value) }); });
   root.append(el('label', { class: 'field', for: 'browser-voice-volume' }, t('Speech volume'), volume, output),
+    button('Test microphone', ctx.checkMicrophone, { symbol: 'mic' }),
     el('p', { class: 'small muted' }, t('At 100%, speech uses the browser’s maximum volume. Your device volume still applies.')),
     el('div', { id: 'assistant-audio-output', role: 'status' }),
     button('Stop speech', () => ctx.endLive(), { kind: 'ghost', symbol: 'stop' }));

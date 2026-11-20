@@ -38,6 +38,7 @@ export class BrowserVoiceCapture {
   async start(language = 'auto', wakeRequired = false, { text: suppliedText } = {}) {
     this.cancel(); const generation = ++this.generation;
     const current = () => generation === this.generation;
+    let microphoneGranted = false;
     try {
       if (!browserVoiceAvailable()) throw { code: 'BROWSER_RECOGNITION_UNAVAILABLE' };
       this.setState('permission');
@@ -45,7 +46,7 @@ export class BrowserVoiceCapture {
       // user gesture, before any cloud request or socket handshake can delay it.
       if (globalThis.navigator?.mediaDevices?.getUserMedia) {
         let stream;
-        try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+        try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); microphoneGranted = true; }
         catch (error) { throw { code: error.name === 'NotAllowedError' || error.name === 'SecurityError' ? 'MICROPHONE_DENIED' : 'MICROPHONE_UNAVAILABLE' }; }
         finally { stream?.getTracks().forEach(track => track.stop()); }
         if (!current()) return;
@@ -108,7 +109,7 @@ export class BrowserVoiceCapture {
         };
         recognition.onerror = async event => {
         if (!current() || this.recognition !== recognition) return;
-        if (event.error === 'network' && !local && 'processLocally' in recognition &&
+        if (['network', 'service-not-allowed'].includes(event.error) && !local && 'processLocally' in recognition &&
             typeof recognitionConstructor().available === 'function' && !this.finalText) {
           recognition.onend = recognition.onerror = null;
           clearTimeout(this.deadline);
@@ -119,7 +120,7 @@ export class BrowserVoiceCapture {
             if (availability === 'available') { startRecognition(true); return; }
           } catch { if (!current()) return; }
         }
-        const code = ({ 'not-allowed': 'MICROPHONE_DENIED', 'service-not-allowed': 'MICROPHONE_DENIED',
+        const code = ({ 'not-allowed': microphoneGranted ? 'BROWSER_RECOGNITION_BLOCKED' : 'MICROPHONE_DENIED', 'service-not-allowed': 'BROWSER_RECOGNITION_SERVICE_DENIED',
           'audio-capture': 'MICROPHONE_UNAVAILABLE', 'no-speech': 'MICROPHONE_NO_SPEECH',
           'network': 'BROWSER_RECOGNITION_NETWORK', 'language-not-supported': 'BROWSER_LANGUAGE_UNAVAILABLE',
           'aborted': 'VOICE_CANCELLED' })[event.error] || 'BROWSER_RECOGNITION_FAILED';

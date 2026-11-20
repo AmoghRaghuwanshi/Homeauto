@@ -52,7 +52,7 @@ export class WakeListener {
       };
       recognition.onerror = event => {
         if (!ownsRecognition() || event.error === 'no-speech') return;
-        const code = ({ 'not-allowed': 'MICROPHONE_DENIED', 'service-not-allowed': 'MICROPHONE_DENIED', 'network': 'BROWSER_RECOGNITION_NETWORK', 'audio-capture': 'MICROPHONE_UNAVAILABLE', 'language-not-supported': 'BROWSER_LANGUAGE_UNAVAILABLE' })[event.error] || 'BROWSER_RECOGNITION_FAILED';
+        const code = ({ 'not-allowed': 'MICROPHONE_DENIED', 'service-not-allowed': 'BROWSER_RECOGNITION_SERVICE_DENIED', 'network': 'BROWSER_RECOGNITION_NETWORK', 'audio-capture': 'MICROPHONE_UNAVAILABLE', 'language-not-supported': 'BROWSER_LANGUAGE_UNAVAILABLE' })[event.error] || 'BROWSER_RECOGNITION_FAILED';
         this.fail({ code });
       };
       recognition.onend = () => {

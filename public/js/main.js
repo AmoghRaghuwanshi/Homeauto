@@ -6,6 +6,7 @@ import { state, acceptSnapshot, connectState, disconnectState, isGatewayCurrent 
 import { renderView } from './views.js';
 import { BrowserVoiceCapture as VoiceCapture, BrowserSpeechOutput } from './browser-voice.js';
 import { refreshBrowserVoiceChoices } from './browser-voice-settings.js';
+import { showMicrophoneCheck } from './microphone-check.js';
 import { LiveConversation } from './live-conversation.js';
 import { WakeListener } from './wake-listener.js';
 import { beginChatTurn } from './chat-history.js';
@@ -253,6 +254,7 @@ ctx.beginTurn = () => { beginChatTurn(ctx.conversation); ctx.assistantBusy = tru
 ctx.pauseWake = () => { clearTimeout(ctx.wakeResumeTimer); ctx.wake?.pause(); };
 ctx.scheduleWake = () => { clearTimeout(ctx.wakeResumeTimer); if (ctx.wake?.enabled) ctx.wakeResumeTimer = setTimeout(() => ctx.wake.resume(), 350); };
 ctx.startVoice = () => { ctx.pauseWake(); ctx.live.stop(); ctx.stopAudio(); ctx.voice.start(state.snapshot.preferences.input_language, false); };
+ctx.checkMicrophone = () => { ctx.pauseWake(); ctx.endLive(); showMicrophoneCheck(); };
 ctx.updateWake = () => {
   const enabled = !!ctx.wake?.enabled;
   const status = document.getElementById('wake-listening-status'); if (status) { status.hidden = !enabled; const label = status.querySelector('[data-wake-label]'); if (label) label.textContent = t(ctx.wake.state === 'listening' ? 'Wake listening is on. Say Shrimaan to start.' : 'Wake listening is paused while you use the assistant.'); }

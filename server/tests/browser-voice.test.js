@@ -67,7 +67,7 @@ test('microphone permission is requested before transport and canceled permissio
   assert.equal(order.at(-1),'canceled-stream-released');assert.equal(f.recognizers.length,1);
 });
 test('interim-only speech never becomes a command; microphone and network failures have specific errors', async t => {
-  for (const [input, expected] of [['interim', 'MICROPHONE_NO_SPEECH'], ['not-allowed', 'MICROPHONE_DENIED'], ['network', 'BROWSER_RECOGNITION_NETWORK']]) {
+  for (const [input, expected] of [['interim', 'MICROPHONE_NO_SPEECH'], ['not-allowed', 'MICROPHONE_DENIED'], ['service-not-allowed', 'BROWSER_RECOGNITION_SERVICE_DENIED'], ['network', 'BROWSER_RECOGNITION_NETWORK']]) {
     const f = clientFixture(); t.after(() => f.capture.cancel()); await f.capture.start('en');
     assert.equal(f.recognizers[0].lang, 'en-IN');
     if (input === 'interim') { f.recognizers[0].result('turn on', false); f.recognizers[0].onend(); }
@@ -75,6 +75,58 @@ test('interim-only speech never becomes a command; microphone and network failur
     assert.equal(f.errors[0].code, expected); assert.equal(f.messages.filter(m => m.type === 'transcript').length, 0);
   }
 });
+test('recognition refusal after successful capture is distinct from blocked microphone access', async t => {
+  const f = clientFixture(); t.after(() => f.capture.cancel());
+  let stopped = false;
+  f.scope.navigator = { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() { stopped = true; } }] }) } };
+  await f.capture.start('en'); f.recognizers[0].onerror({ error: 'not-allowed' });
+  assert.equal(stopped, true); assert.equal(f.errors.at(-1).code, 'BROWSER_RECOGNITION_BLOCKED');
+  assert.equal(f.messages.filter(m => m.type === 'transcript').length, 0);
+});
+
+function microphoneFixture({ level = .03, denied = false } = {}) {
+  const timers = new Map(), intervals = new Set(), states = [], results = [], errors = [], devices = [];
+  let stopped = 0, closed = 0, disconnected = 0, next = 0;
+  const track = { label: 'Physical test microphone', stop: () => stopped++ };
+  const stream = { getTracks: () => [track], getAudioTracks: () => [track] };
+  const scope = {
+    isSecureContext: true, Float32Array, Math, t: value => value,
+    navigator: { mediaDevices: { getUserMedia: async () => { if (denied) throw Object.assign(new Error(), { name: 'NotAllowedError', code: 0 }); return stream; } } },
+    AudioContext: class {
+      constructor() { this.state = 'running'; }
+      async resume() {}
+      async close() { closed++; }
+      createAnalyser() { return { fftSize: 0, getFloatTimeDomainData: values => values.fill(level) }; }
+      createMediaStreamSource() { return { connect() {}, disconnect: () => disconnected++ }; }
+    },
+    setTimeout: (fn, ms) => { const id = ++next; timers.set(id, { fn, ms }); return id; }, clearTimeout: id => timers.delete(id),
+    setInterval: fn => { intervals.add(fn); return fn; }, clearInterval: fn => intervals.delete(fn),
+  };
+  vm.runInNewContext(source('microphone-check.js') + ';this.Check=MicrophoneCheck;', scope);
+  const check = new scope.Check({ onState: value => states.push(value), onResult: value => results.push(value), onDevice: value => devices.push(value), onError: value => errors.push(value) });
+  return { check, scope, stream, states, results, errors, devices, timers, intervals, counts: () => ({ stopped, closed, disconnected }) };
+}
+
+test('microphone test distinguishes sound from silence, shows active input, and releases every resource', async () => {
+  for (const [level, expected] of [[.03, true], [0, false]]) {
+    const f = microphoneFixture({ level }); await f.check.start();
+    assert.equal(f.states.at(-1), 'listening'); assert.equal(f.devices[0], 'Physical test microphone');
+    for (const tick of f.intervals) tick();
+    [...f.timers.values()].find(timer => timer.ms === 6000).fn();
+    assert.equal(f.results[0], expected); assert.deepEqual(f.counts(), { stopped: 1, closed: 1, disconnected: 1 });
+    assert.equal(f.timers.size, 0); assert.equal(f.intervals.size, 0);
+  }
+});
+
+test('microphone test denial and a late permission grant after close never leak input or start sampling', async () => {
+  const denied = microphoneFixture({ denied: true }); await denied.check.start();
+  assert.equal(denied.errors[0].code, 'MICROPHONE_DENIED'); assert.equal(denied.counts().closed, 1);
+  const f = microphoneFixture(); let allow;
+  f.scope.navigator.mediaDevices.getUserMedia = () => new Promise(resolve => { allow = resolve; });
+  const pending = f.check.start(); f.check.stop(); allow(f.stream); await pending;
+  assert.equal(f.counts().stopped, 1); assert.equal(f.intervals.size, 0); assert.equal(f.results.length, 0);
+});
+
 test('network recognition failure retries with an installed on-device Web Speech pack', async t => {
   const f = clientFixture(); t.after(() => f.capture.cancel());
   f.scope.SpeechRecognition.prototype.processLocally = false;
